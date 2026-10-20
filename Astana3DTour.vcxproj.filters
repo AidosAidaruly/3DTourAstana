@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files"><UniqueIdentifier>{687CC4FA-3D7C-4C45-86A4-F197F3441EB9}</UniqueIdentifier><Extensions>cpp;c</Extensions></Filter>
+    <Filter Include="Header Files"><UniqueIdentifier>{495E330A-D95D-4AC5-818F-315315DA4768}</UniqueIdentifier><Extensions>h;hpp</Extensions></Filter>
+    <Filter Include="Header Files\include"><UniqueIdentifier>{253742A1-78DE-490D-8D75-A726485CC09F}</UniqueIdentifier></Filter>
+    <Filter Include="lib"><UniqueIdentifier>{CB39E082-BE51-48E2-99C1-05AD126D186F}</UniqueIdentifier></Filter>
+    <Filter Include="Shaders"><UniqueIdentifier>{58F3EEB7-967B-4DD3-9A66-85BE1E240B0B}</UniqueIdentifier></Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Camera.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Math3D.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Shader.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Mesh.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Scene.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\main.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\glad.c"><Filter>Source Files</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Camera.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Math3D.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Shader.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Mesh.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Scene.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="include\glad\glad.h"><Filter>Header Files\include</Filter></ClInclude>
+    <ClInclude Include="include\GLFW\glfw3.h"><Filter>Header Files\include</Filter></ClInclude>
+    <ClInclude Include="include\GLFW\glfw3native.h"><Filter>Header Files\include</Filter></ClInclude>
+    <ClInclude Include="include\KHR\khrplatform.h"><Filter>Header Files\include</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="lib\glfw3.lib"><Filter>lib</Filter></None>
+    <None Include="shaders\ground.vert"><Filter>Shaders</Filter></None>
+    <None Include="shaders\ground.frag"><Filter>Shaders</Filter></None>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,53 @@
+# Visual Studio local state and build directories
+.vs/
+build/
+out/
+bin/
+obj/
+x64/
+x86/
+Debug/
+Release/
+
+# User-specific project and CMake settings
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+CMakeUserPresets.json
+
+# Generated binaries and compiler/debug artifacts
+*.exe
+*.obj
+*.o
+*.pdb
+*.idb
+*.ilk
+*.ipch
+*.pch
+*.tlog
+*.lastbuildstate
+*.VC.db
+*.VC.opendb
+
+# Temporary files and logs
+*.tmp
+*.temp
+*.bak
+*.log
+*~
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa
+id_ed25519
+credentials.json
+secrets.json
+
+# Keep the required prebuilt GLFW dependency: lib/glfw3.lib.
