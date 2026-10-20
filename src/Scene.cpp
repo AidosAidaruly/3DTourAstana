@@ -13,6 +13,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
 void Scene::render(const Mat4& view, const Mat4& projection) const
 {
     const float plazaColor[3] = {0.75f, 0.75f, 0.75f};
+    const float walkwayColor[3] = {0.60f, 0.60f, 0.60f};
 
     shader.use();
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, view.data());
@@ -25,5 +26,9 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, plazaModel.data());
     glUniform1i(useObjectColorLocation, GL_TRUE);
     glUniform3fv(objectColorLocation, 1, plazaColor);
+    mesh.drawCube();
+
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, walkwayModel.data());
+    glUniform3fv(objectColorLocation, 1, walkwayColor);
     mesh.drawCube();
 }
