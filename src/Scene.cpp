@@ -31,4 +31,6 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, walkwayModel.data());
     glUniform3fv(objectColorLocation, 1, walkwayColor);
     mesh.drawCube();
+
+    baiterek.render(mesh, modelLocation, objectColorLocation);
 }

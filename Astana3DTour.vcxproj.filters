@@ -8,6 +8,7 @@
     <Filter Include="Shaders"><UniqueIdentifier>{58F3EEB7-967B-4DD3-9A66-85BE1E240B0B}</UniqueIdentifier></Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Baiterek.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Camera.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Math3D.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Shader.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -17,6 +18,7 @@
     <ClCompile Include="src\glad.c"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Baiterek.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Camera.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Math3D.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Shader.h"><Filter>Header Files</Filter></ClInclude>

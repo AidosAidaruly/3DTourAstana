@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Baiterek.h"
 #include "Math3D.h"
 #include "Mesh.h"
 #include "Shader.h"
@@ -15,6 +16,7 @@ public:
 private:
     Shader shader;
     Mesh mesh;
+    Baiterek baiterek;
 
     GLint viewLocation = -1;
     GLint projectionLocation = -1;

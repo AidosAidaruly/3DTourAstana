@@ -2,7 +2,7 @@
 
 #include <glad/glad.h>
 
-// Owns the existing ground and unit-cube vertex data in one VAO/VBO.
+// Owns reusable ground, unit-cube, and unit-sphere geometry in one VAO/VBO.
 class Mesh
 {
 public:
@@ -14,8 +14,11 @@ public:
 
     void drawGround() const;
     void drawCube() const;
+    void drawSphere() const;
 
 private:
     GLuint vao = 0;
     GLuint vbo = 0;
+    GLint sphereFirstVertex = 0;
+    GLsizei sphereVertexCount = 0;
 };
