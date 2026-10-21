@@ -110,7 +110,7 @@ int main(int argc, char** argv)
             }
 
             glViewport(0, 0, width, height);
-            glClearColor(0.025f, 0.035f, 0.055f, 1);
+            glClearColor(0.65f, 0.80f, 0.92f, 1);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             Mat4 view = camera.viewMatrix(),

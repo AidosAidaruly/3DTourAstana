@@ -12,8 +12,8 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
 
 void Scene::render(const Mat4& view, const Mat4& projection) const
 {
-    const float plazaColor[3] = {0.75f, 0.75f, 0.75f};
-    const float walkwayColor[3] = {0.60f, 0.60f, 0.60f};
+    const float plazaColor[3] = {0.80f, 0.80f, 0.78f};
+    const float walkwayColor[3] = {0.52f, 0.53f, 0.54f};
 
     shader.use();
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, view.data());
@@ -33,4 +33,6 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     mesh.drawCube();
 
     baiterek.render(mesh, modelLocation, objectColorLocation);
+    building.render(mesh, modelLocation, objectColorLocation);
+    secondBuilding.render(mesh, modelLocation, objectColorLocation);
 }

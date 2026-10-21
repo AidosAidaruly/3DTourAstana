@@ -16,7 +16,7 @@ void main()
 
     vec2 cell = floor(worldPosition.xz);
     float checker = mod(cell.x + cell.y, 2.0);
-    vec3 color = mix(vec3(0.12, 0.20, 0.24), vec3(0.19, 0.30, 0.34), checker);
+    vec3 color = mix(vec3(0.48, 0.56, 0.42), vec3(0.51, 0.59, 0.45), checker);
     float fade = smoothstep(200.0, 400.0, length(worldPosition.xz));
-    fragColor = vec4(mix(color, vec3(0.025, 0.035, 0.055), fade), 1.0);
+    fragColor = vec4(mix(color, vec3(0.65, 0.80, 0.92), fade), 1.0);
 }

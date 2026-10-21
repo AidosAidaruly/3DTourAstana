@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Baiterek.h"
+#include "Building.h"
 #include "Math3D.h"
 #include "Mesh.h"
 #include "Shader.h"
@@ -17,6 +18,10 @@ private:
     Shader shader;
     Mesh mesh;
     Baiterek baiterek;
+
+    // One 16 x 25 x 12 building, resting on the ground outside the plaza.
+    Building building{{75, 12.5f, 0}, {16, 25, 12}, {0.36f, 0.46f, 0.56f}};
+    Building secondBuilding{{100, 17.5f, -30}, {20, 35, 14}, {0.62f, 0.69f, 0.76f}};
 
     GLint viewLocation = -1;
     GLint projectionLocation = -1;
