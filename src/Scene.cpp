@@ -38,4 +38,9 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     baiterek.render(mesh, modelLocation, objectColorLocation);
     building.render(mesh, modelLocation, objectColorLocation);
     secondBuilding.render(mesh, modelLocation, objectColorLocation);
+
+    for (const Tree& tree : trees)
+    {
+        tree.render(mesh, modelLocation, objectColorLocation);
+    }
 }

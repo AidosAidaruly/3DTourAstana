@@ -52,6 +52,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Tree.cpp" />
     <ClCompile Include="src\Building.cpp" />
     <ClCompile Include="src\Baiterek.cpp" />
     <ClCompile Include="src\Camera.cpp" />
@@ -63,6 +64,7 @@
     <ClCompile Include="src\glad.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Tree.h" />
     <ClInclude Include="src\Building.h" />
     <ClInclude Include="src\Baiterek.h" />
     <ClInclude Include="src\Camera.h" />

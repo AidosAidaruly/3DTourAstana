@@ -5,7 +5,9 @@
 #include "Math3D.h"
 #include "Mesh.h"
 #include "Shader.h"
+#include "Tree.h"
 
+#include <array>
 #include <filesystem>
 
 class Scene
@@ -18,6 +20,17 @@ private:
     Shader shader;
     Mesh mesh;
     Baiterek baiterek;
+    // Two rows of four trees, clear of the walkway and plaza.
+    std::array<Tree, 8> trees{{
+        Tree({-14, 0, 40}),
+        Tree({-14, 0, 54}),
+        Tree({-14, 0, 68}),
+        Tree({-14, 0, 82}),
+        Tree({14, 0, 40}),
+        Tree({14, 0, 54}),
+        Tree({14, 0, 68}),
+        Tree({14, 0, 82})
+    }};
 
     // One 16 x 25 x 12 building, resting on the ground outside the plaza.
     Building building{{75, 12.5f, 0}, {16, 25, 12}, {0.36f, 0.46f, 0.56f}};
