@@ -1,32 +1,12 @@
 #include "Scene.h"
 
+#include <cstdint>
 #include <vector>
 
 namespace
 {
-    GLuint createPlazaTexture()
+    GLuint uploadRepeatingTexture(int size, const std::vector<unsigned char>& pixels)
     {
-        constexpr int size = 64;
-        constexpr int tileSize = 32;
-        std::vector<unsigned char> pixels(size * size * 3);
-
-        for (int y = 0; y < size; ++y)
-        {
-            for (int x = 0; x < size; ++x)
-            {
-                int tileX = x / tileSize;
-                int tileY = y / tileSize;
-                bool grout = x % tileSize == 0 || y % tileSize == 0;
-                int shade = grout ? 210 : 242 + (tileX * 7 + tileY * 11) % 14;
-                std::size_t index = static_cast<std::size_t>((y * size + x) * 3);
-
-                for (int channel = 0; channel < 3; ++channel)
-                {
-                    pixels[index + channel] = static_cast<unsigned char>(shade);
-                }
-            }
-        }
-
         GLuint texture = 0;
         glGenTextures(1, &texture);
         glBindTexture(GL_TEXTURE_2D, texture);
@@ -42,6 +22,83 @@ namespace
         glBindTexture(GL_TEXTURE_2D, 0);
 
         return texture;
+    }
+
+
+    std::uint32_t pavingHash(std::uint32_t x, std::uint32_t y)
+    {
+        std::uint32_t value = x * 374761393u + y * 668265263u;
+        value = (value ^ (value >> 13)) * 1274126177u;
+        return value ^ (value >> 16);
+    }
+
+    GLuint createPlazaTexture()
+    {
+        // A 12 x 12 meter patch contains 1.5 x 1 meter slabs.
+        constexpr int size = 768;
+        constexpr int slabWidth = 96;
+        constexpr int slabHeight = 64;
+        constexpr int jointWidth = 1;
+        std::vector<unsigned char> pixels(size * size * 3);
+
+        for (int y = 0; y < size; ++y)
+        {
+            int row = y / slabHeight;
+
+            for (int x = 0; x < size; ++x)
+            {
+                // Quarter-slab offsets alternate and wrap at the texture boundaries.
+                int shiftedX = (x + (row % 2) * (slabWidth / 4)) % size;
+                int column = shiftedX / slabWidth;
+                bool joint = shiftedX % slabWidth < jointWidth
+                    || y % slabHeight < jointWidth;
+                int slabVariation = static_cast<int>(pavingHash(column, row) % 9u) - 4;
+                int grain = static_cast<int>(pavingHash(x, y) % 3u) - 1;
+                int warmth = static_cast<int>(pavingHash(column + 31, row) % 3u);
+                int shade = (joint ? 231 : 246 + slabVariation) + grain;
+                std::size_t index = static_cast<std::size_t>((y * size + x) * 3);
+
+                pixels[index] = static_cast<unsigned char>(shade);
+                pixels[index + 1] = static_cast<unsigned char>(shade - warmth);
+                pixels[index + 2] = static_cast<unsigned char>(shade - warmth * 2);
+            }
+        }
+
+        return uploadRepeatingTexture(size, pixels);
+    }
+
+    GLuint createWalkwayTexture()
+    {
+        // One repeat covers 8 x 8 meters: stones measure 1 x 0.5 meters.
+        constexpr int size = 512;
+        constexpr int stoneWidth = 64;
+        constexpr int stoneHeight = 32;
+        constexpr int jointWidth = 2;
+        std::vector<unsigned char> pixels(size * size * 3);
+
+        for (int y = 0; y < size; ++y)
+        {
+            int row = y / stoneHeight;
+
+            for (int x = 0; x < size; ++x)
+            {
+                // Wrap shifted rows so the texture joins seamlessly at its edges.
+                int shiftedX = (x + (row % 2) * (stoneWidth / 2)) % size;
+                int column = shiftedX / stoneWidth;
+                bool joint = shiftedX % stoneWidth < jointWidth
+                    || y % stoneHeight < jointWidth;
+                int stoneVariation = static_cast<int>(pavingHash(column, row) % 17u) - 8;
+                int grain = static_cast<int>(pavingHash(x, y) % 5u) - 2;
+                int shade = (joint ? 196 : 235 + stoneVariation) + grain;
+                std::size_t index = static_cast<std::size_t>((y * size + x) * 3);
+
+                pixels[index] = static_cast<unsigned char>(shade);
+                pixels[index + 1] = static_cast<unsigned char>(shade - 1);
+                pixels[index + 2] = static_cast<unsigned char>(shade - 3);
+            }
+        }
+
+        return uploadRepeatingTexture(size, pixels);
     }
 }
 
@@ -60,11 +117,13 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
     textureRepeatLocation = shader.uniformLocation("textureRepeat");
     plazaTexture = createPlazaTexture();
+    walkwayTexture = createWalkwayTexture();
 }
 
 Scene::~Scene()
 {
     glDeleteTextures(1, &plazaTexture);
+    glDeleteTextures(1, &walkwayTexture);
 }
 
 void Scene::render(const Mat4& view, const Mat4& projection) const
@@ -90,8 +149,8 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, plazaTexture);
     glUniform1i(plazaTextureLocation, 0);
-    // Each image contains 2 x 2 tiles: 50 x 30 tiles across the 100 x 60 plaza.
-    glUniform2f(textureRepeatLocation, 25.0f, 15.0f);
+    // Repeat a 12-meter patch without stretching the 1.5 x 1 meter slabs.
+    glUniform2f(textureRepeatLocation, 100.0f / 12.0f, 60.0f / 12.0f);
     glUniform1i(useTextureLocation, GL_TRUE);
     mesh.drawCube();
     glUniform1i(useTextureLocation, GL_FALSE);
@@ -99,10 +158,15 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
 
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, walkwayModel.data());
     glUniform3fv(objectColorLocation, 1, walkwayColor);
+    glBindTexture(GL_TEXTURE_2D, walkwayTexture);
+    glUniform2f(textureRepeatLocation, 1.5f, 7.5f);
+    glUniform1i(useTextureLocation, GL_TRUE);
     mesh.drawCube();
 
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, oppositeWalkwayModel.data());
     mesh.drawCube();
+    glUniform1i(useTextureLocation, GL_FALSE);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     baiterek.render(mesh, modelLocation, objectColorLocation);
     building.render(mesh, modelLocation, objectColorLocation);

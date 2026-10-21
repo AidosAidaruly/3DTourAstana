@@ -46,6 +46,7 @@ private:
     GLint plazaTextureLocation = -1;
     GLint textureRepeatLocation = -1;
     GLuint plazaTexture = 0;
+    GLuint walkwayTexture = 0;
     GLint lightDirectionLocation = -1;
     GLint ambientStrengthLocation = -1;
     GLint diffuseStrengthLocation = -1;
