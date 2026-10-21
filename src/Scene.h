@@ -39,4 +39,7 @@ private:
     // Meet the plaza at z = 30 without overlapping its top surface.
     // The 12 x 60 meter walkway has the same top height: y = 0.05.
     Mat4 walkwayModel = modelMatrix({0, 0, 60}, 0, {12, 0.1f, 60});
+
+    // Match the existing walkway and meet the opposite plaza edge at z = -30.
+    Mat4 oppositeWalkwayModel = modelMatrix({0, 0, -60}, 0, {12, 0.1f, 60});
 };
