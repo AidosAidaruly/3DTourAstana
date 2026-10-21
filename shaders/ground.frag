@@ -2,10 +2,14 @@
 
 in vec3 worldPosition;
 in vec3 worldNormal;
+in vec2 uv;
 out vec4 fragColor;
 
 uniform bool useObjectColor;
 uniform vec3 objectColor;
+uniform bool useTexture;
+uniform sampler2D plazaTexture;
+uniform vec2 textureRepeat;
 uniform vec3 lightDirection;
 uniform float ambientStrength;
 uniform float diffuseStrength;
@@ -19,6 +23,11 @@ void main()
         vec2 cell = floor(worldPosition.xz);
         float checker = mod(cell.x + cell.y, 2.0);
         baseColor = mix(vec3(0.48, 0.56, 0.42), vec3(0.51, 0.59, 0.45), checker);
+    }
+
+    if (useTexture)
+    {
+        baseColor *= texture(plazaTexture, uv * textureRepeat).rgb;
     }
 
     // lightDirection describes the direction sunlight travels in world space.

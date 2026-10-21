@@ -14,6 +14,7 @@ class Scene
 {
 public:
     explicit Scene(const std::filesystem::path& shaderDirectory);
+    ~Scene();
     void render(const Mat4& view, const Mat4& projection) const;
 
 private:
@@ -41,6 +42,10 @@ private:
     GLint modelLocation = -1;
     GLint useObjectColorLocation = -1;
     GLint objectColorLocation = -1;
+    GLint useTextureLocation = -1;
+    GLint plazaTextureLocation = -1;
+    GLint textureRepeatLocation = -1;
+    GLuint plazaTexture = 0;
     GLint lightDirectionLocation = -1;
     GLint ambientStrengthLocation = -1;
     GLint diffuseStrengthLocation = -1;

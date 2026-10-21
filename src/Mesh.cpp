@@ -142,7 +142,7 @@ Mesh::Mesh()
         {0, -1, 0}  // Cube bottom.
     };
     std::vector<float> litVertices;
-    litVertices.reserve(meshVertices.size() * 2);
+    litVertices.reserve(meshVertices.size() / 3 * 8);
 
     for (std::size_t i = 0; i < meshVertices.size() / 3; ++i)
     {
@@ -165,7 +165,8 @@ Mesh::Mesh()
 
         litVertices.insert(litVertices.end(), {
             position.x, position.y, position.z,
-            normal.x, normal.y, normal.z
+            normal.x, normal.y, normal.z,
+            position.x + 0.5f, position.z + 0.5f
         });
     }
 
@@ -179,13 +180,19 @@ Mesh::Mesh()
         litVertices.data(),
         GL_STATIC_DRAW
     );
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(
-        1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+        1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
         reinterpret_cast<const void*>(3 * sizeof(float))
     );
     glEnableVertexAttribArray(1);
+    // Planar XZ UVs cover the plaza's top face from 0 to 1.
+    glVertexAttribPointer(
+        2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+        reinterpret_cast<const void*>(6 * sizeof(float))
+    );
+    glEnableVertexAttribArray(2);
 }
 
 Mesh::~Mesh()
