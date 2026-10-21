@@ -131,18 +131,61 @@ Mesh::Mesh()
 
     sphereVertexCount = static_cast<GLsizei>(meshVertices.size() / 3) - sphereFirstVertex;
 
+    // Preserve the existing positions and draw ranges; add one normal per vertex.
+    const Vec3 faceNormals[] = {
+        {0, 1, 0},  // Ground.
+        {0, 0, 1},  // Cube front.
+        {0, 0, -1}, // Cube back.
+        {-1, 0, 0}, // Cube left.
+        {1, 0, 0},  // Cube right.
+        {0, 1, 0},  // Cube top.
+        {0, -1, 0}  // Cube bottom.
+    };
+    std::vector<float> litVertices;
+    litVertices.reserve(meshVertices.size() * 2);
+
+    for (std::size_t i = 0; i < meshVertices.size() / 3; ++i)
+    {
+        Vec3 position{
+            meshVertices[i * 3],
+            meshVertices[i * 3 + 1],
+            meshVertices[i * 3 + 2]
+        };
+        Vec3 normal;
+
+        if (i < static_cast<std::size_t>(sphereFirstVertex))
+        {
+            normal = faceNormals[i / 6];
+        }
+        else
+        {
+            // A unit sphere's outward normal follows its radius.
+            normal = normalize(position);
+        }
+
+        litVertices.insert(litVertices.end(), {
+            position.x, position.y, position.z,
+            normal.x, normal.y, normal.z
+        });
+    }
+
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
     glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(
         GL_ARRAY_BUFFER,
-        static_cast<GLsizeiptr>(meshVertices.size() * sizeof(float)),
-        meshVertices.data(),
+        static_cast<GLsizeiptr>(litVertices.size() * sizeof(float)),
+        litVertices.data(),
         GL_STATIC_DRAW
     );
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(
+        1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+        reinterpret_cast<const void*>(3 * sizeof(float))
+    );
+    glEnableVertexAttribArray(1);
 }
 
 Mesh::~Mesh()

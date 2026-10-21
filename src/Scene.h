@@ -41,6 +41,14 @@ private:
     GLint modelLocation = -1;
     GLint useObjectColorLocation = -1;
     GLint objectColorLocation = -1;
+    GLint lightDirectionLocation = -1;
+    GLint ambientStrengthLocation = -1;
+    GLint diffuseStrengthLocation = -1;
+
+    // Daylight direction points from the sun toward the scene.
+    Vec3 lightDirection{-0.5f, -1.0f, -0.3f};
+    float ambientStrength = 0.35f;
+    float diffuseStrength = 0.65f;
 
     // World scale: 1 unit = 1 meter; Baiterek's reference point stays at the origin.
     // Scale the existing 100 x 100 ground mesh to 400 x 400 meters.

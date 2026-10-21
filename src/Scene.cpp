@@ -8,6 +8,9 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     modelLocation = shader.uniformLocation("model");
     useObjectColorLocation = shader.uniformLocation("useObjectColor");
     objectColorLocation = shader.uniformLocation("objectColor");
+    lightDirectionLocation = shader.uniformLocation("lightDirection");
+    ambientStrengthLocation = shader.uniformLocation("ambientStrength");
+    diffuseStrengthLocation = shader.uniformLocation("diffuseStrength");
 }
 
 void Scene::render(const Mat4& view, const Mat4& projection) const
@@ -16,6 +19,9 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     const float walkwayColor[3] = {0.52f, 0.53f, 0.54f};
 
     shader.use();
+    glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
+    glUniform1f(ambientStrengthLocation, ambientStrength);
+    glUniform1f(diffuseStrengthLocation, diffuseStrength);
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, view.data());
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection.data());
 
