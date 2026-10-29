@@ -1,18 +1,19 @@
 #include "Building.h"
 
-Building::Building(Vec3 position, Vec3 dimensions, Vec3 color)
+Building::Building(Vec3 position, Vec3 dimensions, Vec3 color, WindowLayout layout)
     : model(modelMatrix(position, 0, dimensions)), color(color)
 {
-    constexpr int rows = 6;
-    constexpr int frontColumns = 4;
-    constexpr int sideColumns = 3;
+    const int rows = layout.rows;
+    const int frontColumns = layout.frontColumns;
+    const int sideColumns = layout.sideColumns;
     constexpr float windowThickness = 0.08f;
     constexpr float wallOffset = 0.06f;
 
-    float rowSpacing = dimensions.y / rows;
+    // Equal top and bottom margins keep the floor grid centered on the facade.
+    float rowSpacing = (dimensions.y - 2.0f * layout.verticalMargin) / rows;
     float frontSpacing = dimensions.x / frontColumns;
     float sideSpacing = dimensions.z / sideColumns;
-    float windowHeight = rowSpacing * 0.5f;
+    float windowHeight = rowSpacing * layout.heightFraction;
 
     windowModels.reserve(2 * rows * (frontColumns + sideColumns));
 
@@ -23,7 +24,7 @@ Building::Building(Vec3 position, Vec3 dimensions, Vec3 color)
 
         for (int row = 0; row < rows; ++row)
         {
-            float y = position.y - dimensions.y * 0.5f
+            float y = position.y - dimensions.y * 0.5f + layout.verticalMargin
                 + (static_cast<float>(row) + 0.5f) * rowSpacing;
 
             // The inner face remains 0.02 units outside the wall to avoid z-fighting.
@@ -36,7 +37,7 @@ Building::Building(Vec3 position, Vec3 dimensions, Vec3 color)
                 windowModels.push_back(modelMatrix(
                     {x, y, z},
                     0,
-                    {frontSpacing * 0.55f, windowHeight, windowThickness}
+                    {frontSpacing * layout.widthFraction, windowHeight, windowThickness}
                 ));
             }
 
@@ -49,7 +50,7 @@ Building::Building(Vec3 position, Vec3 dimensions, Vec3 color)
                 windowModels.push_back(modelMatrix(
                     {x, y, z},
                     0,
-                    {windowThickness, windowHeight, sideSpacing * 0.55f}
+                    {windowThickness, windowHeight, sideSpacing * layout.widthFraction}
                 ));
             }
         }

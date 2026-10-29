@@ -11,12 +11,16 @@ uniform mat4 projection;
 out vec3 worldPosition;
 out vec3 worldNormal;
 out vec2 uv;
+out vec3 localPosition;
+out vec3 worldViewDirection;
 
 void main()
 {
     vec4 world = model * vec4(position, 1.0);
     worldPosition = world.xyz;
     uv = textureCoordinates;
+    localPosition = position;
+    worldViewDirection = inverse(view)[3].xyz - world.xyz;
 
     // Inverse transpose keeps normals correct under nonuniform scaling.
     worldNormal = transpose(inverse(mat3(model))) * normal;

@@ -170,6 +170,32 @@ Mesh::Mesh()
         });
     }
 
+    // A square-based pyramid tapers from y = -0.5 to a true point at y = 0.5.
+    const Vec3 tipVertices[] = {
+        {-0.5f, -0.5f, -0.5f}, {0.5f, -0.5f, -0.5f}, {0.5f, -0.5f, 0.5f},
+        {-0.5f, -0.5f, -0.5f}, {0.5f, -0.5f, 0.5f}, {-0.5f, -0.5f, 0.5f},
+        {-0.5f, -0.5f, 0.5f}, {0.5f, -0.5f, 0.5f}, {0, 0.5f, 0},
+        {0.5f, -0.5f, -0.5f}, {-0.5f, -0.5f, -0.5f}, {0, 0.5f, 0},
+        {-0.5f, -0.5f, -0.5f}, {-0.5f, -0.5f, 0.5f}, {0, 0.5f, 0},
+        {0.5f, -0.5f, 0.5f}, {0.5f, -0.5f, -0.5f}, {0, 0.5f, 0}
+    };
+    tipFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+
+    for (int triangle = 0; triangle < 6; ++triangle)
+    {
+        const Vec3* face = tipVertices + triangle * 3;
+        Vec3 normal = normalize(cross(face[1] - face[0], face[2] - face[0]));
+
+        for (int vertex = 0; vertex < 3; ++vertex)
+        {
+            const Vec3& position = face[vertex];
+            litVertices.insert(litVertices.end(), {
+                position.x, position.y, position.z,
+                normal.x, normal.y, normal.z, 0, 0
+            });
+        }
+    }
+
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
     glBindVertexArray(vao);
@@ -217,4 +243,10 @@ void Mesh::drawSphere() const
 {
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLES, sphereFirstVertex, sphereVertexCount);
+}
+
+void Mesh::drawPointedTip() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, tipFirstVertex, 18);
 }

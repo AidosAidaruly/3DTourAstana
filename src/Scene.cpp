@@ -113,6 +113,8 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     lightDirectionLocation = shader.uniformLocation("lightDirection");
     ambientStrengthLocation = shader.uniformLocation("ambientStrength");
     diffuseStrengthLocation = shader.uniformLocation("diffuseStrength");
+    goldenPanelsLocation = shader.uniformLocation("goldenPanels");
+    shaftGlassLocation = shader.uniformLocation("shaftGlass");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
     textureRepeatLocation = shader.uniformLocation("textureRepeat");
@@ -132,6 +134,8 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     const float walkwayColor[3] = {0.52f, 0.53f, 0.54f};
 
     shader.use();
+    glUniform1i(goldenPanelsLocation, GL_FALSE);
+    glUniform1i(shaftGlassLocation, GL_FALSE);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
     glUniform1f(ambientStrengthLocation, ambientStrength);
@@ -168,9 +172,13 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     glUniform1i(useTextureLocation, GL_FALSE);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    baiterek.render(mesh, modelLocation, objectColorLocation);
+    baiterek.render(
+        mesh, modelLocation, objectColorLocation, goldenPanelsLocation, shaftGlassLocation
+    );
     building.render(mesh, modelLocation, objectColorLocation);
     secondBuilding.render(mesh, modelLocation, objectColorLocation);
+    thirdBuilding.render(mesh, modelLocation, objectColorLocation);
+    fourthBuilding.render(mesh, modelLocation, objectColorLocation);
 
     for (const Tree& tree : trees)
     {

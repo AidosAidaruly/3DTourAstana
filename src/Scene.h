@@ -34,8 +34,16 @@ private:
     }};
 
     // One 16 x 25 x 12 building, resting on the ground outside the plaza.
-    Building building{{75, 12.5f, 0}, {16, 25, 12}, {0.36f, 0.46f, 0.56f}};
+    // Six floors at 3.75-meter spacing, with 1.8 x 2.1 meter windows.
+    Building building{
+        {75, 12.5f, 0}, {16, 25, 12}, {0.36f, 0.46f, 0.56f},
+        WindowLayout{6, 4, 3, 1.25f, 0.45f, 0.56f}
+    };
     Building secondBuilding{{100, 17.5f, -30}, {20, 35, 14}, {0.62f, 0.69f, 0.76f}};
+
+    // Opposite-side buildings stay clear of the plaza and pedestrian axis.
+    Building thirdBuilding{{-75, 15, 0}, {18, 30, 14}, {0.48f, 0.57f, 0.63f}};
+    Building fourthBuilding{{-100, 20, -35}, {22, 40, 16}, {0.67f, 0.70f, 0.72f}};
 
     GLint viewLocation = -1;
     GLint projectionLocation = -1;
@@ -50,6 +58,8 @@ private:
     GLint lightDirectionLocation = -1;
     GLint ambientStrengthLocation = -1;
     GLint diffuseStrengthLocation = -1;
+    GLint goldenPanelsLocation = -1;
+    GLint shaftGlassLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
     Vec3 lightDirection{-0.5f, -1.0f, -0.3f};
