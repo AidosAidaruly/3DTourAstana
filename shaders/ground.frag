@@ -17,6 +17,7 @@ uniform float ambientStrength;
 uniform float diffuseStrength;
 uniform bool goldenPanels;
 uniform bool shaftGlass;
+uniform bool useGrass;
 
 vec3 shadeGoldenPanels(vec3 normal, vec3 toLight, float lambert)
 {
@@ -83,6 +84,14 @@ void main()
     if (useTexture)
     {
         baseColor *= texture(plazaTexture, uv * textureRepeat).rgb;
+    }
+
+    if (useGrass)
+    {
+        // Soft world-space variation breaks up the flat color without harsh noise.
+        float broad = sin(worldPosition.x * 0.83) * sin(worldPosition.z * 0.76);
+        float fine = sin(worldPosition.x * 2.4 + worldPosition.z * 1.9);
+        baseColor *= 0.98 + 0.03 * broad + 0.012 * fine;
     }
 
     // lightDirection describes the direction sunlight travels in world space.

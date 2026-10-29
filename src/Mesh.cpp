@@ -28,6 +28,72 @@ namespace
             radius * std::sin(longitude)
         };
     }
+
+    constexpr int circleSegments = 96;
+    constexpr int gardenSegments = 32;
+    constexpr int bedSegments = 20;
+
+    void appendAnnulus(
+        std::vector<float>& vertices,
+        float innerRadius,
+        float outerRadius,
+        float startAngle = 0.0f,
+        float endAngle = 2.0f * pi,
+        int segments = circleSegments,
+        float height = 0.0f
+    )
+    {
+        auto appendVertex = [&vertices, height](float radius, float angle)
+        {
+            float x = radius * std::cos(angle);
+            float z = radius * std::sin(angle);
+
+            // One UV unit spans the 48-meter diameter; the scene repeats it four times.
+            vertices.insert(vertices.end(), {
+                x, height, z, 0, 1, 0,
+                x / 48.0f + 0.5f, z / 48.0f + 0.5f
+            });
+        };
+
+        for (int segment = 0; segment < segments; ++segment)
+        {
+            float angle = startAngle + (endAngle - startAngle) * segment / segments;
+            float nextAngle = startAngle + (endAngle - startAngle) * (segment + 1) / segments;
+
+            appendVertex(innerRadius, angle);
+            appendVertex(innerRadius, nextAngle);
+            appendVertex(outerRadius, nextAngle);
+            appendVertex(innerRadius, angle);
+            appendVertex(outerRadius, nextAngle);
+            appendVertex(outerRadius, angle);
+        }
+    }
+
+    Vec3 bedPoint(float radius, float angle)
+    {
+        return {radius * std::cos(angle), 0, radius * std::sin(angle)};
+    }
+
+    void appendBedWall(std::vector<float>& vertices, Vec3 start, Vec3 end, Vec3 normal)
+    {
+        Vec3 upperStart = start + Vec3{0, 0.09f, 0};
+        Vec3 upperEnd = end + Vec3{0, 0.09f, 0};
+
+        auto appendVertex = [&vertices, normal](Vec3 position)
+        {
+            vertices.insert(vertices.end(), {
+                position.x, position.y, position.z,
+                normal.x, normal.y, normal.z, 0, 0
+            });
+        };
+
+        appendVertex(start);
+        appendVertex(end);
+        appendVertex(upperEnd);
+        appendVertex(start);
+        appendVertex(upperEnd);
+        appendVertex(upperStart);
+    }
 }
 
 Mesh::Mesh()
@@ -196,6 +262,92 @@ Mesh::Mesh()
         }
     }
 
+    circularPlazaFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+    appendAnnulus(litVertices, 10.1f, 24.0f);
+
+    circularBorderFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+    appendAnnulus(litVertices, 10.1f, 10.45f);
+    appendAnnulus(litVertices, 23.65f, 24.0f);
+
+    // One curved quadrant is rotated four times around the circular plaza.
+    constexpr float gardenStart = 27.0f * pi / 180.0f;
+    constexpr float gardenEnd = 63.0f * pi / 180.0f;
+    gardenLawnFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+    appendAnnulus(litVertices, 25.5f, 33.0f, gardenStart, gardenEnd, gardenSegments);
+
+    gardenInnerBandFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+    appendAnnulus(litVertices, 25.5f, 26.5f, gardenStart, gardenEnd, gardenSegments);
+
+    // One soil bed is framed by a shallow stone rim, repeated in all four gardens.
+    gardenSoilFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+    constexpr float flowerStart = 37.0f * pi / 180.0f;
+    constexpr float flowerEnd = 53.0f * pi / 180.0f;
+    appendAnnulus(litVertices, 29.0f, 31.0f, flowerStart, flowerEnd, bedSegments);
+
+    gardenBorderFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+    appendAnnulus(litVertices, 28.93f, 29.13f, flowerStart, flowerEnd, bedSegments, 0.09f);
+    appendAnnulus(litVertices, 30.87f, 31.07f, flowerStart, flowerEnd, bedSegments, 0.09f);
+    appendAnnulus(litVertices, 28.93f, 31.07f, flowerStart, flowerStart + 0.006f,
+                  1, 0.09f);
+    appendAnnulus(litVertices, 28.93f, 31.07f, flowerEnd - 0.006f, flowerEnd,
+                  1, 0.09f);
+
+    for (int segment = 0; segment < bedSegments; ++segment)
+    {
+        float angle = flowerStart + (flowerEnd - flowerStart) * segment / bedSegments;
+        float nextAngle = flowerStart + (flowerEnd - flowerStart) * (segment + 1) / bedSegments;
+        float middle = (angle + nextAngle) * 0.5f;
+
+        appendBedWall(litVertices, bedPoint(31.07f, angle), bedPoint(31.07f, nextAngle),
+                      {std::cos(middle), 0, std::sin(middle)});
+        appendBedWall(litVertices, bedPoint(28.93f, nextAngle), bedPoint(28.93f, angle),
+                      {-std::cos(middle), 0, -std::sin(middle)});
+    }
+
+    appendBedWall(litVertices, bedPoint(28.93f, flowerStart),
+                  bedPoint(31.07f, flowerStart),
+                  {std::sin(flowerStart), 0, -std::cos(flowerStart)});
+    appendBedWall(litVertices, bedPoint(31.07f, flowerEnd),
+                  bedPoint(28.93f, flowerEnd),
+                  {-std::sin(flowerEnd), 0, std::cos(flowerEnd)});
+    gardenBorderVertexCount = static_cast<GLsizei>(litVertices.size() / 8) -
+        gardenBorderFirstVertex;
+
+    // Five shallow pointed petals make a readable low-poly blossom in one draw.
+    flowerBlossomFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+
+    for (int petal = 0; petal < 5; ++petal)
+    {
+        float angle = 2.0f * pi * petal / 5.0f;
+        Vec3 left{0.12f * std::cos(angle - 0.42f), 0.02f,
+                  0.12f * std::sin(angle - 0.42f)};
+        Vec3 right{0.12f * std::cos(angle + 0.42f), 0.02f,
+                   0.12f * std::sin(angle + 0.42f)};
+        Vec3 tip{0.5f * std::cos(angle), 0, 0.5f * std::sin(angle)};
+        Vec3 ridge{0.27f * std::cos(angle), 0.30f, 0.27f * std::sin(angle)};
+        const Vec3 faces[] = {
+            left, right, tip,
+            left, ridge, right,
+            right, ridge, tip,
+            tip, ridge, left
+        };
+
+        for (int triangle = 0; triangle < 4; ++triangle)
+        {
+            const Vec3* face = faces + triangle * 3;
+            Vec3 normal = normalize(cross(face[1] - face[0], face[2] - face[0]));
+
+            for (int vertex = 0; vertex < 3; ++vertex)
+            {
+                Vec3 position = face[vertex];
+                litVertices.insert(litVertices.end(), {
+                    position.x, position.y, position.z,
+                    normal.x, normal.y, normal.z, 0, 0
+                });
+            }
+        }
+    }
+
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
     glBindVertexArray(vao);
@@ -249,4 +401,46 @@ void Mesh::drawPointedTip() const
 {
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLES, tipFirstVertex, 18);
+}
+
+void Mesh::drawCircularPlaza() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, circularPlazaFirstVertex, circleSegments * 6);
+}
+
+void Mesh::drawCircularBorder() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, circularBorderFirstVertex, circleSegments * 12);
+}
+
+void Mesh::drawGardenLawn() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, gardenLawnFirstVertex, gardenSegments * 6);
+}
+
+void Mesh::drawGardenInnerBand() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, gardenInnerBandFirstVertex, gardenSegments * 6);
+}
+
+void Mesh::drawGardenSoil() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, gardenSoilFirstVertex, bedSegments * 6);
+}
+
+void Mesh::drawGardenBedBorder() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, gardenBorderFirstVertex, gardenBorderVertexCount);
+}
+
+void Mesh::drawFlowerBlossom() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, flowerBlossomFirstVertex, 60);
 }

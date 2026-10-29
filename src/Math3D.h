@@ -21,4 +21,6 @@ Vec3 normalize(Vec3 v);
 
 // Scale locally, rotate around Y, then translate: T * Ry * S.
 Mat4 modelMatrix(Vec3 translation, float rotationDegrees, Vec3 scale);
+// Position a component relative to a parent that rotates around the vertical axis.
+Mat4 partModelMatrix(Vec3 origin, float rotationDegrees, Vec3 localCenter, Vec3 scale);
 Mat4 projectionMatrix(float aspect);

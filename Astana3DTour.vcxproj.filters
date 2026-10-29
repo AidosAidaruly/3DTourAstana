@@ -8,6 +8,8 @@
     <Filter Include="Shaders"><UniqueIdentifier>{58F3EEB7-967B-4DD3-9A66-85BE1E240B0B}</UniqueIdentifier></Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Bench.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\StreetLight.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Tree.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Building.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Baiterek.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -20,6 +22,8 @@
     <ClCompile Include="src\glad.c"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Bench.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\StreetLight.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Tree.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Building.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Baiterek.h"><Filter>Header Files</Filter></ClInclude>

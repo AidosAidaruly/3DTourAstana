@@ -1,10 +1,12 @@
 #pragma once
 
 #include "Baiterek.h"
+#include "Bench.h"
 #include "Building.h"
 #include "Math3D.h"
 #include "Mesh.h"
 #include "Shader.h"
+#include "StreetLight.h"
 #include "Tree.h"
 
 #include <array>
@@ -31,6 +33,29 @@ private:
         Tree({14, 0, 54}),
         Tree({14, 0, 68}),
         Tree({14, 0, 82})
+    }};
+
+    // Four lights frame the gardens; four mark the walkway entrances.
+    std::array<StreetLight, 8> streetLights{{
+        StreetLight({-39, 0.05f, -18}, -90),
+        StreetLight({-39, 0.05f, 18}, -90),
+        StreetLight({39, 0.05f, -18}, 90),
+        StreetLight({39, 0.05f, 18}, 90),
+        StreetLight({-9, 0, -36}, -90),
+        StreetLight({9, 0, -36}, 90),
+        StreetLight({-9, 0, 36}, -90),
+        StreetLight({9, 0, 36}, 90)
+    }};
+
+    // Four seats border the curved lawns; two frame the camera-side approach.
+    // Local bench forward is -Z, so these rotations face the monument.
+    std::array<Bench, 6> benches{{
+        Bench({-30, 0.05f, -19}, -122),
+        Bench({-30, 0.05f, 19}, -58),
+        Bench({30, 0.05f, -19}, 122),
+        Bench({30, 0.05f, 19}, 58),
+        Bench({-11, 0.05f, 27}, -22),
+        Bench({11, 0.05f, 27}, 22)
     }};
 
     // One 16 x 25 x 12 building, resting on the ground outside the plaza.
@@ -60,6 +85,7 @@ private:
     GLint diffuseStrengthLocation = -1;
     GLint goldenPanelsLocation = -1;
     GLint shaftGlassLocation = -1;
+    GLint useGrassLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
     Vec3 lightDirection{-0.5f, -1.0f, -0.3f};
@@ -72,6 +98,10 @@ private:
 
     // The 100 x 60 meter plaza is centered at the origin; its top is at y = 0.05.
     Mat4 plazaModel = modelMatrix({0, 0, 0}, 0, {100, 0.1f, 60});
+
+    // A low annular paved area surrounds the monument without covering its base.
+    Mat4 circularPlazaModel = modelMatrix({0, 0.09f, 0}, 0, {1, 1, 1});
+    Mat4 circularBorderModel = modelMatrix({0, 0.11f, 0}, 0, {1, 1, 1});
 
     // Meet the plaza at z = 30 without overlapping its top surface.
     // The 12 x 60 meter walkway has the same top height: y = 0.05.

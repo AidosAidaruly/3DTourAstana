@@ -50,6 +50,20 @@ Mat4 modelMatrix(Vec3 translation, float rotationDegrees, Vec3 scale)
     };
 }
 
+Mat4 partModelMatrix(Vec3 origin, float rotationDegrees, Vec3 localCenter, Vec3 scale)
+{
+    float angle = rotationDegrees * pi / 180.0f;
+    float c = std::cos(angle);
+    float s = std::sin(angle);
+    Vec3 rotatedCenter{
+        c * localCenter.x + s * localCenter.z,
+        localCenter.y,
+        -s * localCenter.x + c * localCenter.z
+    };
+
+    return modelMatrix(origin + rotatedCenter, rotationDegrees, scale);
+}
+
 Mat4 projectionMatrix(float aspect)
 {
     // Perspective projection: 60-degree vertical field of view, near/far clipping planes.
