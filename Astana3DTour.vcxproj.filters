@@ -10,6 +10,7 @@
   <ItemGroup>
     <ClCompile Include="src\Bench.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\StreetLight.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\TalanTowers.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Tree.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Building.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Baiterek.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -24,6 +25,7 @@
   <ItemGroup>
     <ClInclude Include="src\Bench.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\StreetLight.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\TalanTowers.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Tree.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Building.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Baiterek.h"><Filter>Header Files</Filter></ClInclude>

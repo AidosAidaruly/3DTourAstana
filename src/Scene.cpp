@@ -116,6 +116,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     diffuseStrengthLocation = shader.uniformLocation("diffuseStrength");
     goldenPanelsLocation = shader.uniformLocation("goldenPanels");
     shaftGlassLocation = shader.uniformLocation("shaftGlass");
+    talanFacadeLocation = shader.uniformLocation("talanFacadeMode");
     useGrassLocation = shader.uniformLocation("useGrass");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
@@ -138,6 +139,7 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     shader.use();
     glUniform1i(goldenPanelsLocation, GL_FALSE);
     glUniform1i(shaftGlassLocation, GL_FALSE);
+    glUniform1i(talanFacadeLocation, 0);
     glUniform1i(useGrassLocation, GL_FALSE);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
@@ -260,6 +262,14 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
         }
     }
 
+    // Warm, light paving distinguishes the gallery forecourt from the boulevard.
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, talanForecourtModel.data());
+    glUniform3f(objectColorLocation, 0.78f, 0.77f, 0.74f);
+    glBindTexture(GL_TEXTURE_2D, plazaTexture);
+    glUniform2f(textureRepeatLocation, 60.0f / 12.0f, 27.0f / 12.0f);
+    glUniform1i(useTextureLocation, GL_TRUE);
+    mesh.drawCube();
+
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, walkwayModel.data());
     glUniform3fv(objectColorLocation, 1, walkwayColor);
     glBindTexture(GL_TEXTURE_2D, walkwayTexture);
@@ -268,6 +278,11 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     mesh.drawCube();
 
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, oppositeWalkwayModel.data());
+    mesh.drawCube();
+
+    // Meet the negative-Z path at x = 6 and the forecourt at x = 55.
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, talanApproachModel.data());
+    glUniform2f(textureRepeatLocation, 49.0f / 8.0f, 1.0f);
     mesh.drawCube();
     glUniform1i(useTextureLocation, GL_FALSE);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -279,6 +294,7 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     secondBuilding.render(mesh, modelLocation, objectColorLocation);
     thirdBuilding.render(mesh, modelLocation, objectColorLocation);
     fourthBuilding.render(mesh, modelLocation, objectColorLocation);
+    talanTowers.render(mesh, modelLocation, objectColorLocation, talanFacadeLocation);
 
     for (const Tree& tree : trees)
     {

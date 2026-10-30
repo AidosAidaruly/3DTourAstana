@@ -54,6 +54,7 @@
   <ItemGroup>
     <ClCompile Include="src\Bench.cpp" />
     <ClCompile Include="src\StreetLight.cpp" />
+    <ClCompile Include="src\TalanTowers.cpp" />
     <ClCompile Include="src\Tree.cpp" />
     <ClCompile Include="src\Building.cpp" />
     <ClCompile Include="src\Baiterek.cpp" />
@@ -68,6 +69,7 @@
   <ItemGroup>
     <ClInclude Include="src\Bench.h" />
     <ClInclude Include="src\StreetLight.h" />
+    <ClInclude Include="src\TalanTowers.h" />
     <ClInclude Include="src\Tree.h" />
     <ClInclude Include="src\Building.h" />
     <ClInclude Include="src\Baiterek.h" />

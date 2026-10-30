@@ -7,6 +7,7 @@
 #include "Mesh.h"
 #include "Shader.h"
 #include "StreetLight.h"
+#include "TalanTowers.h"
 #include "Tree.h"
 
 #include <array>
@@ -64,11 +65,14 @@ private:
         {75, 12.5f, 0}, {16, 25, 12}, {0.36f, 0.46f, 0.56f},
         WindowLayout{6, 4, 3, 1.25f, 0.45f, 0.56f}
     };
-    Building secondBuilding{{100, 17.5f, -30}, {20, 35, 14}, {0.62f, 0.69f, 0.76f}};
+    Building secondBuilding{{140, 17.5f, -20}, {20, 35, 14}, {0.62f, 0.69f, 0.76f}};
 
     // Opposite-side buildings stay clear of the plaza and pedestrian axis.
     Building thirdBuilding{{-75, 15, 0}, {18, 30, 14}, {0.48f, 0.57f, 0.63f}};
     Building fourthBuilding{{-100, 20, -35}, {22, 40, 16}, {0.67f, 0.70f, 0.72f}};
+
+    // The shared podium stays clear of the existing buildings and park.
+    TalanTowers talanTowers{{85, 0, -65}};
 
     GLint viewLocation = -1;
     GLint projectionLocation = -1;
@@ -85,6 +89,7 @@ private:
     GLint diffuseStrengthLocation = -1;
     GLint goldenPanelsLocation = -1;
     GLint shaftGlassLocation = -1;
+    GLint talanFacadeLocation = -1;
     GLint useGrassLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
@@ -109,4 +114,8 @@ private:
 
     // Match the existing walkway and meet the opposite plaza edge at z = -30.
     Mat4 oppositeWalkwayModel = modelMatrix({0, 0, -60}, 0, {12, 0.1f, 60});
+
+    // The gallery has its own paved forecourt and a branch from the city path.
+    Mat4 talanForecourtModel = modelMatrix({85, 0, -41.5f}, 0, {60, 0.1f, 27});
+    Mat4 talanApproachModel = modelMatrix({30.5f, 0, -50}, 0, {49, 0.1f, 8});
 };

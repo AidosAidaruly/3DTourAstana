@@ -18,6 +18,7 @@ uniform float diffuseStrength;
 uniform bool goldenPanels;
 uniform bool shaftGlass;
 uniform bool useGrass;
+uniform int talanFacadeMode;
 
 vec3 shadeGoldenPanels(vec3 normal, vec3 toLight, float lambert)
 {
@@ -118,6 +119,46 @@ void main()
         float highlight = pow(max(dot(normal, halfDirection), 0.0), 96.0);
         color = mix(color, reflectedSky, 0.22 + 0.28 * fresnel);
         color += vec3(0.70, 0.83, 0.91) * highlight * 0.35;
+    }
+
+    if (talanFacadeMode != 0)
+    {
+        // Tower U follows the rounded perimeter; podium bays follow each flat wall.
+        float bay = talanFacadeMode == 1 ? uv.x :
+            (abs(normal.z) > abs(normal.x) ? worldPosition.x : worldPosition.z) / 2.4;
+        float floorLevel = worldPosition.y / (talanFacadeMode == 1 ? 2.0 : 1.75);
+        vec2 grid = vec2(bay, floorLevel);
+        vec2 edge = min(fract(grid), 1.0 - fract(grid));
+        vec2 smoothing = max(fwidth(grid) * 0.7, vec2(0.012));
+        float mullion = 1.0 - smoothstep(0.045, 0.045 + smoothing.x, edge.x);
+        float floorBand = 1.0 - smoothstep(0.045, 0.045 + smoothing.y, edge.y);
+
+        // The new gallery has real modeled frames instead of the tower grid.
+        if (talanFacadeMode == 3)
+        {
+            mullion = 0.0;
+            floorBand = 0.0;
+        }
+
+        float paneVariation = 1.0 + 0.025 * sin(
+            floor(grid.x) * 1.37 + floor(grid.y) * 2.03
+        );
+        vec3 glass = baseColor * (ambientStrength + diffuseStrength * lambert);
+        vec3 viewDirection = normalize(worldViewDirection);
+        vec3 reflection = reflect(-viewDirection, normal);
+        float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 5.0);
+        vec3 sky = mix(
+            vec3(0.72, 0.72, 0.69), vec3(0.53, 0.74, 0.88),
+            smoothstep(-0.2, 0.55, reflection.y)
+        );
+        color = mix(glass * paneVariation, sky, 0.38 + 0.24 * fresnel);
+
+        vec3 halfDirection = normalize(toLight + viewDirection);
+        float highlight = pow(max(dot(normal, halfDirection), 0.0), 96.0);
+        color += vec3(0.74, 0.85, 0.94) * highlight * 0.20;
+
+        vec3 frame = vec3(0.78, 0.72, 0.59) * (0.60 + 0.40 * lambert);
+        color = mix(color, frame, max(mullion, floorBand) * 0.92);
     }
 
     if (!useObjectColor)
