@@ -16,8 +16,11 @@ private:
     Vec3 forward() const;
 
     // Start closer to the plaza, looking slightly downward.
-    Vec3 position{0, 3, 55};
+    static constexpr float walkingEyeHeight = 3.0f;
+    Vec3 position{0, walkingEyeHeight, 55};
     float yaw = -90, pitch = -5;
     double lastX = 0, lastY = 0;
     bool firstMouse = true;
+    bool freeFlight = false;
+    bool fWasPressed = false;
 };

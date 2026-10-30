@@ -63,7 +63,21 @@ void Camera::processInput(GLFWwindow* window, float dt)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
 
-    // Walk at a fixed height; mouse pitch changes the viewing direction only.
+    bool fPressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
+
+    if (fPressed && !fWasPressed)
+    {
+        freeFlight = !freeFlight;
+
+        if (!freeFlight)
+        {
+            position.y = walkingEyeHeight;
+        }
+    }
+
+    fWasPressed = fPressed;
+
+    // Both modes use yaw for horizontal travel; pitch affects looking only.
     Vec3 f = forward();
     f.y = 0;
     f = normalize(f);
@@ -90,9 +104,25 @@ void Camera::processInput(GLFWwindow* window, float dt)
         movement = movement - right;
     }
 
+    if (freeFlight)
+    {
+        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+        {
+            movement.y += 1.0f;
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+        {
+            movement.y -= 1.0f;
+        }
+    }
+
+    float speed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
+        ? 15.0f : 5.0f;
+
     // Normalize combined input so diagonal movement is not faster.
     if (dot(movement, movement) > 0)
     {
-        position = position + normalize(movement) * (5 * dt);
+        position = position + normalize(movement) * (speed * dt);
     }
 }
