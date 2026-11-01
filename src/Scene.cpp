@@ -1,11 +1,95 @@
 #include "Scene.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <vector>
 
 namespace
 {
+    struct PavingRectangle
+    {
+        float minX;
+        float maxX;
+        float minZ;
+        float maxZ;
+    };
+
+    // The new route meets existing paved edges without covering the Baiterek
+    // plaza or its camera-side walkway.
+    constexpr std::array<PavingRectangle, 5> abuDhabiPaving{{
+        {-153.0f, -93.0f, 43.0f, 83.0f},
+        {-93.0f, -40.0f, 50.0f, 60.0f},
+        {-50.0f, -40.0f, 30.0f, 50.0f},
+        {-153.0f, -135.0f, 83.0f, 87.5f},
+        {-111.0f, -93.0f, 83.0f, 87.5f}
+    }};
+
+    // The raised stone base supports both storefront wings and the recessed
+    // central wall. Its front edge meets the landing and side paving.
+    constexpr std::array<PavingRectangle, 3> abuDhabiRaisedBase{{
+        {-155.0f, -135.0f, 87.5f, 101.0f},
+        {-111.0f, -91.0f, 87.5f, 101.0f},
+        {-135.0f, -111.0f, 92.0f, 101.0f}
+    }};
+
+    // Low stone edging follows the extended forecourt sides, leaving the
+    // pedestrian route and central steps unobstructed.
+    constexpr std::array<PavingRectangle, 8> abuDhabiBorders{{
+        {-153.12f, -152.88f, 43.12f, 87.38f},
+        {-153.0f, -93.0f, 42.88f, 43.12f},
+        {-93.12f, -92.88f, 43.12f, 49.88f},
+        {-93.12f, -92.88f, 60.12f, 87.38f},
+        {-93.0f, -40.0f, 59.88f, 60.12f},
+        {-93.0f, -50.0f, 49.88f, 50.12f},
+        {-50.12f, -49.88f, 30.0f, 49.88f},
+        {-40.12f, -39.88f, 30.0f, 50.0f}
+    }};
+
+    // Four connected streets frame the complex. The east street pauses for
+    // the approved pedestrian route, which crosses at z = 50..60.
+    constexpr std::array<PavingRectangle, 5> abuDhabiRoads{{
+        {-205.0f, -58.0f, 28.0f, 38.0f},
+        {-205.0f, -58.0f, 175.0f, 185.0f},
+        {-205.0f, -195.0f, 38.0f, 175.0f},
+        {-68.0f, -58.0f, 38.0f, 50.0f},
+        {-68.0f, -58.0f, 60.0f, 175.0f}
+    }};
+
+    constexpr PavingRectangle abuDhabiCrossing{-68.0f, -58.0f, 50.0f, 60.0f};
+
+    // Five-meter inner sidewalks and four-meter outer sidewalks leave room
+    // for later planting without occupying the entrance forecourt.
+    constexpr std::array<PavingRectangle, 10> abuDhabiSidewalks{{
+        {-195.0f, -68.0f, 38.0f, 43.0f},
+        {-195.0f, -68.0f, 170.0f, 175.0f},
+        {-195.0f, -190.0f, 43.0f, 170.0f},
+        {-73.0f, -68.0f, 43.0f, 50.0f},
+        {-73.0f, -68.0f, 60.0f, 170.0f},
+        {-209.0f, -205.0f, 28.0f, 185.0f},
+        {-58.0f, -54.0f, 28.0f, 50.0f},
+        {-58.0f, -54.0f, 60.0f, 185.0f},
+        {-205.0f, -58.0f, 24.0f, 28.0f},
+        {-205.0f, -58.0f, 185.0f, 189.0f}
+    }};
+
+    // Curbs sit inside the asphalt edges. The two east curbs open at the
+    // marked pedestrian crossing, and no curb runs across a vehicle junction.
+    constexpr std::array<PavingRectangle, 11> abuDhabiRoadCurbs{{
+        // A 6-meter curb opening at z = 162..168 serves the side parking court.
+        {-205.0f, -204.7f, 38.0f, 162.0f},
+        {-205.0f, -204.7f, 168.0f, 175.0f},
+        {-195.3f, -195.0f, 43.0f, 170.0f},
+        {-68.0f, -67.7f, 43.0f, 50.0f},
+        {-68.0f, -67.7f, 60.0f, 170.0f},
+        {-58.3f, -58.0f, 38.0f, 50.0f},
+        {-58.3f, -58.0f, 60.0f, 175.0f},
+        {-195.0f, -68.0f, 37.7f, 38.0f},
+        {-205.0f, -58.0f, 28.0f, 28.3f},
+        {-195.0f, -68.0f, 175.0f, 175.3f},
+        {-205.0f, -58.0f, 184.7f, 185.0f}
+    }};
+
     GLuint uploadRepeatingTexture(int size, const std::vector<unsigned char>& pixels)
     {
         GLuint texture = 0;
@@ -116,8 +200,14 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     diffuseStrengthLocation = shader.uniformLocation("diffuseStrength");
     goldenPanelsLocation = shader.uniformLocation("goldenPanels");
     shaftGlassLocation = shader.uniformLocation("shaftGlass");
+    abuDhabiFacadeLocation = shader.uniformLocation("abuDhabiFacade");
+    abuDhabiSecondaryFacadeLocation =
+        shader.uniformLocation("abuDhabiSecondaryFacadeMode");
+    abuDhabiGlassMaterialLocation =
+        shader.uniformLocation("abuDhabiGlassMaterial");
     talanFacadeLocation = shader.uniformLocation("talanFacadeMode");
     useGrassLocation = shader.uniformLocation("useGrass");
+    useAsphaltLocation = shader.uniformLocation("useAsphalt");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
     textureRepeatLocation = shader.uniformLocation("textureRepeat");
@@ -139,8 +229,12 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     shader.use();
     glUniform1i(goldenPanelsLocation, GL_FALSE);
     glUniform1i(shaftGlassLocation, GL_FALSE);
+    glUniform1i(abuDhabiFacadeLocation, GL_FALSE);
+    glUniform1i(abuDhabiSecondaryFacadeLocation, 0);
+    glUniform1i(abuDhabiGlassMaterialLocation, GL_FALSE);
     glUniform1i(talanFacadeLocation, 0);
     glUniform1i(useGrassLocation, GL_FALSE);
+    glUniform1i(useAsphaltLocation, GL_FALSE);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
     glUniform1f(ambientStrengthLocation, ambientStrength);
@@ -270,6 +364,159 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     glUniform1i(useTextureLocation, GL_TRUE);
     mesh.drawCube();
 
+    // Light stone slabs form Abu Dhabi Plaza's forecourt and two perpendicular
+    // pedestrian segments. Every rectangle meets its neighbor at one edge.
+    glUniform3f(objectColorLocation, 0.80f, 0.80f, 0.79f);
+
+    for (const PavingRectangle& area : abuDhabiPaving)
+    {
+        float width = area.maxX - area.minX;
+        float length = area.maxZ - area.minZ;
+        Mat4 paving = modelMatrix(
+            {(area.minX + area.maxX) * 0.5f, 0,
+             (area.minZ + area.maxZ) * 0.5f},
+            0, {width, 0.1f, length}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, paving.data());
+        glUniform2f(textureRepeatLocation, width / 12.0f, length / 12.0f);
+        mesh.drawCube();
+    }
+
+    // Four 18.75 cm risers bring the route up to the existing door sill at
+    // y = 0.8 without changing the approved podium or entrance geometry.
+    for (int step = 0; step < 4; ++step)
+    {
+        float top = 0.05f + (step + 1) * 0.1875f;
+        Mat4 stair = modelMatrix(
+            {-123.0f, top * 0.5f, 83.5f + step},
+            0, {24.0f, top, 1.0f}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, stair.data());
+        glUniform2f(textureRepeatLocation, 2.0f, 1.0f / 12.0f);
+        mesh.drawCube();
+    }
+
+    Mat4 entranceLanding = modelMatrix(
+        {-123.0f, 0.4f, 89.5f}, 0, {24.0f, 0.8f, 5.0f}
+    );
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, entranceLanding.data());
+    glUniform2f(textureRepeatLocation, 2.0f, 5.0f / 12.0f);
+    mesh.drawCube();
+
+    for (const PavingRectangle& area : abuDhabiRaisedBase)
+    {
+        float width = area.maxX - area.minX;
+        float length = area.maxZ - area.minZ;
+        Mat4 base = modelMatrix(
+            {(area.minX + area.maxX) * 0.5f, 0.4f,
+             (area.minZ + area.maxZ) * 0.5f},
+            0, {width, 0.8f, length}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, base.data());
+        glUniform2f(textureRepeatLocation, width / 12.0f, length / 12.0f);
+        mesh.drawCube();
+    }
+
+    glUniform1i(useTextureLocation, GL_FALSE);
+    glUniform3f(objectColorLocation, 0.67f, 0.69f, 0.69f);
+
+    for (const PavingRectangle& edge : abuDhabiBorders)
+    {
+        Mat4 border = modelMatrix(
+            {(edge.minX + edge.maxX) * 0.5f, 0.06f,
+             (edge.minZ + edge.maxZ) * 0.5f},
+            0, {edge.maxX - edge.minX, 0.12f, edge.maxZ - edge.minZ}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, border.data());
+        mesh.drawCube();
+    }
+
+    auto drawAbuDhabiRectangle = [&](const PavingRectangle& area, float top)
+    {
+        float width = area.maxX - area.minX;
+        float length = area.maxZ - area.minZ;
+        Mat4 model = modelMatrix(
+            {(area.minX + area.maxX) * 0.5f, top * 0.5f,
+             (area.minZ + area.maxZ) * 0.5f},
+            0, {width, top, length}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, model.data());
+        mesh.drawCube();
+    };
+
+    // A compact connected block has two 10-meter east-west streets and two
+    // north-south streets. The crossing covers only the approved route's
+    // 10-meter intersection with the east street.
+    glUniform3f(objectColorLocation, 0.27f, 0.29f, 0.30f);
+    glUniform1i(useAsphaltLocation, GL_TRUE);
+
+    for (const PavingRectangle& road : abuDhabiRoads)
+    {
+        drawAbuDhabiRectangle(road, 0.04f);
+    }
+
+    drawAbuDhabiRectangle(abuDhabiCrossing, 0.065f);
+    glUniform1i(useAsphaltLocation, GL_FALSE);
+
+    // Short centerline dashes identify two-way vehicle lanes without drawing
+    // through the junctions or the marked pedestrian crossing.
+    glUniform3f(objectColorLocation, 0.78f, 0.79f, 0.75f);
+
+    for (float centerZ : {33.0f, 180.0f})
+    {
+        for (float x = -191.0f; x < -72.0f; x += 14.0f)
+        {
+            drawAbuDhabiRectangle({x, x + 6.0f, centerZ - 0.075f,
+                                    centerZ + 0.075f}, 0.046f);
+        }
+    }
+
+    for (float centerX : {-200.0f, -63.0f})
+    {
+        for (float z = 45.0f; z < 165.0f; z += 14.0f)
+        {
+            if (centerX == -63.0f && z < 61.0f)
+            {
+                continue;
+            }
+
+            drawAbuDhabiRectangle({centerX - 0.075f, centerX + 0.075f,
+                                    z, z + 6.0f}, 0.046f);
+        }
+    }
+
+    // Zebra bars cross the entire east street while leaving dark asphalt
+    // between them, so both vehicle and pedestrian routes remain legible.
+    glUniform3f(objectColorLocation, 0.88f, 0.89f, 0.86f);
+
+    for (int stripe = 0; stripe < 6; ++stripe)
+    {
+        float z = 50.45f + stripe * 1.5f;
+        drawAbuDhabiRectangle({-67.55f, -58.45f, z, z + 0.7f}, 0.072f);
+    }
+
+    // Light stone sidewalks meet at the block corners. The east-side pair
+    // leaves the established route open through the marked crossing.
+    glUniform3f(objectColorLocation, 0.78f, 0.79f, 0.77f);
+    glBindTexture(GL_TEXTURE_2D, plazaTexture);
+    glUniform1i(useTextureLocation, GL_TRUE);
+
+    for (const PavingRectangle& sidewalk : abuDhabiSidewalks)
+    {
+        float width = sidewalk.maxX - sidewalk.minX;
+        float length = sidewalk.maxZ - sidewalk.minZ;
+        glUniform2f(textureRepeatLocation, width / 12.0f, length / 12.0f);
+        drawAbuDhabiRectangle(sidewalk, 0.06f);
+    }
+
+    glUniform1i(useTextureLocation, GL_FALSE);
+    glUniform3f(objectColorLocation, 0.74f, 0.75f, 0.73f);
+
+    for (const PavingRectangle& curb : abuDhabiRoadCurbs)
+    {
+        drawAbuDhabiRectangle(curb, 0.12f);
+    }
+
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, walkwayModel.data());
     glUniform3fv(objectColorLocation, 1, walkwayColor);
     glBindTexture(GL_TEXTURE_2D, walkwayTexture);
@@ -295,6 +542,19 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     thirdBuilding.render(mesh, modelLocation, objectColorLocation);
     fourthBuilding.render(mesh, modelLocation, objectColorLocation);
     talanTowers.render(mesh, modelLocation, objectColorLocation, talanFacadeLocation);
+    glUniform1i(talanFacadeLocation, 0);
+    abuDhabiPlaza.render(
+        mesh, modelLocation, objectColorLocation,
+        shaftGlassLocation, abuDhabiFacadeLocation,
+        abuDhabiSecondaryFacadeLocation, abuDhabiGlassMaterialLocation
+    );
+    glUniform1i(useTextureLocation, GL_FALSE);
+    abuDhabiLandscaping.render(
+        mesh, modelLocation, objectColorLocation, useGrassLocation
+    );
+    abuDhabiFurniture.render(
+        mesh, modelLocation, objectColorLocation, useAsphaltLocation
+    );
 
     for (const Tree& tree : trees)
     {

@@ -1,14 +1,24 @@
 #include "StreetLight.h"
 
-StreetLight::StreetLight(Vec3 position, float rotationDegrees)
+StreetLight::StreetLight(Vec3 position, float rotationDegrees, float scale)
     : metalParts{{
-        partModelMatrix(position, rotationDegrees, {0, 0.08f, 0}, {0.38f, 0.16f, 0.38f}),
-        partModelMatrix(position, rotationDegrees, {0, 3.16f, 0}, {0.14f, 6.16f, 0.14f}),
-        partModelMatrix(position, rotationDegrees, {0, 6.20f, -0.28f}, {0.12f, 0.12f, 0.62f}),
-        partModelMatrix(position, rotationDegrees, {0, 6.28f, -0.55f}, {0.48f, 0.16f, 0.52f})
+        partModelMatrix(position, rotationDegrees,
+                        Vec3{0, 0.08f, 0} * scale,
+                        Vec3{0.38f, 0.16f, 0.38f} * scale),
+        partModelMatrix(position, rotationDegrees,
+                        Vec3{0, 3.16f, 0} * scale,
+                        Vec3{0.14f, 6.16f, 0.14f} * scale),
+        partModelMatrix(position, rotationDegrees,
+                        Vec3{0, 6.20f, -0.28f} * scale,
+                        Vec3{0.12f, 0.12f, 0.62f} * scale),
+        partModelMatrix(position, rotationDegrees,
+                        Vec3{0, 6.28f, -0.55f} * scale,
+                        Vec3{0.48f, 0.16f, 0.52f} * scale)
     }},
     diffuser(partModelMatrix(
-        position, rotationDegrees, {0, 6.15f, -0.55f}, {0.42f, 0.09f, 0.46f}
+        position, rotationDegrees,
+        Vec3{0, 6.15f, -0.55f} * scale,
+        Vec3{0.42f, 0.09f, 0.46f} * scale
     ))
 {
 }

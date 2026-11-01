@@ -8,7 +8,8 @@
 class Tree
 {
 public:
-    explicit Tree(Vec3 position, float scale = 1.0f);
+    explicit Tree(Vec3 position, float scale = 1.0f,
+                  float foliageVariation = 0.0f);
 
     // Uses the scene's active solid-color shader and shared meshes.
     void render(const Mesh& mesh, GLint modelLocation, GLint objectColorLocation) const;
@@ -16,4 +17,5 @@ public:
 private:
     Mat4 trunkModel;
     std::array<Mat4, 4> foliageModels;
+    float foliageVariation = 0.0f;
 };

@@ -1,6 +1,7 @@
 #include "Tree.h"
 
-Tree::Tree(Vec3 position, float scale)
+Tree::Tree(Vec3 position, float scale, float variation)
+    : foliageVariation(variation)
 {
     // Apply the same parent position and uniform scale to every local component.
     trunkModel = modelMatrix(
@@ -51,7 +52,10 @@ void Tree::render(
     {
         const Vec3& color = foliageColors[i];
         glUniformMatrix4fv(modelLocation, 1, GL_FALSE, foliageModels[i].data());
-        glUniform3f(objectColorLocation, color.x, color.y, color.z);
+        glUniform3f(objectColorLocation,
+                    color.x * (1.0f + foliageVariation * 0.5f),
+                    color.y * (1.0f + foliageVariation),
+                    color.z * (1.0f + foliageVariation * 0.4f));
         mesh.drawSphere();
     }
 }

@@ -67,7 +67,7 @@ Mat4 partModelMatrix(Vec3 origin, float rotationDegrees, Vec3 localCenter, Vec3 
 Mat4 projectionMatrix(float aspect)
 {
     // Perspective projection: 60-degree vertical field of view, near/far clipping planes.
-    constexpr float n = 0.1f, f = 600;
+    constexpr float n = 0.2f, f = 1000;
     float scale = 1 / std::tan(60 * pi / 360);
 
     return {

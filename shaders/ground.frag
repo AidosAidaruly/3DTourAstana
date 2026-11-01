@@ -17,7 +17,11 @@ uniform float ambientStrength;
 uniform float diffuseStrength;
 uniform bool goldenPanels;
 uniform bool shaftGlass;
+uniform bool abuDhabiFacade;
+uniform int abuDhabiSecondaryFacadeMode;
+uniform bool abuDhabiGlassMaterial;
 uniform bool useGrass;
+uniform bool useAsphalt;
 uniform int talanFacadeMode;
 
 vec3 shadeGoldenPanels(vec3 normal, vec3 toLight, float lambert)
@@ -71,6 +75,42 @@ vec3 shadeGoldenPanels(vec3 normal, vec3 toLight, float lambert)
     return mix(color, color * vec3(0.86, 0.84, 0.80), joint * 0.48);
 }
 
+vec3 shadeAbuDhabiGlass(vec3 baseColor, vec3 normal, vec3 toLight, float lambert)
+{
+    vec3 viewDirection = normalize(worldViewDirection);
+    vec3 reflection = reflect(-viewDirection, normal);
+    float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
+    float fresnel = 0.04 + 0.96 * pow(1.0 - facing, 5.0);
+
+    // A soft directional sky reflection adds depth without a cubemap.
+    float skyHeight = smoothstep(-0.16, 0.58, reflection.y);
+    vec3 environment = mix(
+        vec3(0.43, 0.53, 0.61), vec3(0.60, 0.76, 0.88), skyHeight
+    );
+    float horizon = 1.0 - smoothstep(0.03, 0.26, abs(reflection.y));
+    environment += vec3(0.025, 0.026, 0.022) * horizon;
+
+    float cloud = 0.5 + 0.5 *
+        sin(reflection.x * 13.0 + reflection.z * 5.0) *
+        sin(reflection.z * 10.0 - reflection.x * 4.0);
+    environment += vec3(0.025, 0.028, 0.030) * cloud *
+        smoothstep(0.05, 0.50, reflection.y);
+
+    float sunFacing = max(dot(normal, toLight), 0.0);
+    float reflectionWeight = clamp(
+        0.16 + 0.48 * fresnel + 0.06 * sunFacing, 0.0, 0.68
+    );
+    vec3 diffuseGlass = baseColor *
+        (ambientStrength + diffuseStrength * lambert);
+    vec3 color = mix(diffuseGlass, environment, reflectionWeight);
+
+    // A moderately broad sun lobe approximates polished, imperfect glass.
+    vec3 halfDirection = normalize(toLight + viewDirection);
+    float sun = max(dot(normal, halfDirection), 0.0);
+    float specular = 0.12 * pow(sun, 64.0) + 0.025 * pow(sun, 18.0);
+    return color + vec3(0.80, 0.88, 0.94) * specular;
+}
+
 void main()
 {
     vec3 baseColor = objectColor;
@@ -93,6 +133,14 @@ void main()
         float broad = sin(worldPosition.x * 0.83) * sin(worldPosition.z * 0.76);
         float fine = sin(worldPosition.x * 2.4 + worldPosition.z * 1.9);
         baseColor *= 0.98 + 0.03 * broad + 0.012 * fine;
+    }
+
+    if (useAsphalt)
+    {
+        // World-space variation is faint and stable across the street segments.
+        float broad = sin(worldPosition.x * 0.43) * sin(worldPosition.z * 0.51);
+        float fine = sin(worldPosition.x * 2.1 + worldPosition.z * 1.7);
+        baseColor *= 0.99 + 0.018 * broad + 0.006 * fine;
     }
 
     // lightDirection describes the direction sunlight travels in world space.
@@ -119,6 +167,104 @@ void main()
         float highlight = pow(max(dot(normal, halfDirection), 0.0), 96.0);
         color = mix(color, reflectedSky, 0.22 + 0.28 * fresnel);
         color += vec3(0.70, 0.83, 0.91) * highlight * 0.35;
+    }
+
+    if (abuDhabiGlassMaterial)
+    {
+        color = shadeAbuDhabiGlass(baseColor, normal, toLight, lambert);
+    }
+
+    if (abuDhabiFacade)
+    {
+        // The main tower has narrow bays and floor joints on all four faces.
+        // World-space spacing keeps the curtain wall at a consistent scale.
+        float across = abs(normal.z) > abs(normal.x) ?
+            worldPosition.x : worldPosition.z;
+        vec2 grid = vec2(across / 2.25, worldPosition.y / 3.2);
+        vec2 edge = min(fract(grid), 1.0 - fract(grid));
+        vec2 smoothing = max(fwidth(grid) * 0.65, vec2(0.006));
+        float mullion = 1.0 - smoothstep(
+            0.025, 0.025 + smoothing.x, edge.x
+        );
+        float floorJoint = 1.0 - smoothstep(
+            0.025, 0.025 + smoothing.y, edge.y
+        );
+        float detailVisibility = 1.0 - smoothstep(
+            0.35, 0.9, max(fwidth(grid.x), fwidth(grid.y))
+        );
+
+        vec2 pane = floor(grid);
+        float paneTone = 0.985 + 0.015 * sin(
+            pane.x * 1.31 + pane.y * 2.07
+        );
+        color *= paneTone;
+
+        vec3 silver = vec3(0.80, 0.84, 0.86) *
+            (0.68 + 0.32 * lambert);
+        color = mix(color, silver, mullion * 0.82 * detailVisibility);
+        color *= 1.0 - floorJoint * 0.22 * detailVisibility;
+    }
+
+    if (abuDhabiSecondaryFacadeMode != 0)
+    {
+        // Four related curtain-wall rhythms share one antialiased material.
+        // The broad midrise uses wider panes and quieter framing.
+        float bayWidth = 3.2;
+        float floorHeight = 3.5;
+        float frameWidth = 0.028;
+
+        if (abuDhabiSecondaryFacadeMode == 2)
+        {
+            bayWidth = 2.4;
+            floorHeight = 3.2;
+            frameWidth = 0.038;
+        }
+        else if (abuDhabiSecondaryFacadeMode == 3)
+        {
+            bayWidth = 2.8;
+            floorHeight = 3.0;
+            frameWidth = 0.032;
+        }
+        else if (abuDhabiSecondaryFacadeMode == 4)
+        {
+            bayWidth = 2.25;
+            floorHeight = 3.4;
+            frameWidth = 0.034;
+        }
+        else if (abuDhabiSecondaryFacadeMode == 5)
+        {
+            // The six-meter podium uses broad storefront bays and a transom.
+            bayWidth = 4.0;
+            floorHeight = 3.6;
+            frameWidth = 0.032;
+        }
+
+        float across = abs(normal.z) > abs(normal.x) ?
+            worldPosition.x : worldPosition.z;
+        vec2 grid = vec2(across / bayWidth, worldPosition.y / floorHeight);
+        vec2 edge = min(fract(grid), 1.0 - fract(grid));
+        vec2 smoothing = max(fwidth(grid) * 0.7, vec2(0.008));
+        float mullion = 1.0 - smoothstep(
+            frameWidth, frameWidth + smoothing.x, edge.x
+        );
+        float floorLine = 1.0 - smoothstep(
+            0.030, 0.030 + smoothing.y, edge.y
+        );
+        float detailVisibility = 1.0 - smoothstep(
+            0.35, 0.9, max(fwidth(grid.x), fwidth(grid.y))
+        );
+
+        vec2 pane = floor(grid);
+        float paneTone = 0.985 + 0.015 * sin(
+            pane.x * 1.43 + pane.y * 2.17 +
+            float(abuDhabiSecondaryFacadeMode) * 1.1
+        );
+        color *= paneTone;
+
+        vec3 silver = vec3(0.79, 0.83, 0.85) *
+            (0.70 + 0.30 * lambert);
+        float framing = max(mullion * 0.84, floorLine * 0.65);
+        color = mix(color, silver, framing * detailVisibility);
     }
 
     if (talanFacadeMode != 0)
@@ -163,7 +309,7 @@ void main()
 
     if (!useObjectColor)
     {
-        float fade = smoothstep(200.0, 400.0, length(worldPosition.xz));
+        float fade = smoothstep(550.0, 850.0, length(worldPosition.xz));
         color = mix(color, vec3(0.65, 0.80, 0.92), fade);
     }
 

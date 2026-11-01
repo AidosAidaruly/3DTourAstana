@@ -1,5 +1,8 @@
 #pragma once
 
+#include "AbuDhabiFurniture.h"
+#include "AbuDhabiLandscaping.h"
+#include "AbuDhabiPlaza.h"
 #include "Baiterek.h"
 #include "Bench.h"
 #include "Building.h"
@@ -73,6 +76,9 @@ private:
 
     // The shared podium stays clear of the existing buildings and park.
     TalanTowers talanTowers{{85, 0, -65}};
+    AbuDhabiPlaza abuDhabiPlaza{{-125, 0, 125}};
+    AbuDhabiLandscaping abuDhabiLandscaping;
+    AbuDhabiFurniture abuDhabiFurniture;
 
     GLint viewLocation = -1;
     GLint projectionLocation = -1;
@@ -89,8 +95,12 @@ private:
     GLint diffuseStrengthLocation = -1;
     GLint goldenPanelsLocation = -1;
     GLint shaftGlassLocation = -1;
+    GLint abuDhabiFacadeLocation = -1;
+    GLint abuDhabiSecondaryFacadeLocation = -1;
+    GLint abuDhabiGlassMaterialLocation = -1;
     GLint talanFacadeLocation = -1;
     GLint useGrassLocation = -1;
+    GLint useAsphaltLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
     Vec3 lightDirection{-0.5f, -1.0f, -0.3f};
@@ -98,8 +108,8 @@ private:
     float diffuseStrength = 0.65f;
 
     // World scale: 1 unit = 1 meter; Baiterek's reference point stays at the origin.
-    // Scale the existing 100 x 100 ground mesh to 400 x 400 meters.
-    Mat4 groundModel = modelMatrix({0, 0, 0}, 0, {4, 1, 4});
+    // Cover the Abu Dhabi Plaza roads while retaining the larger city terrain.
+    Mat4 groundModel = modelMatrix({0, 0, -75}, 0, {6, 1, 10.5f});
 
     // The 100 x 60 meter plaza is centered at the origin; its top is at y = 0.05.
     Mat4 plazaModel = modelMatrix({0, 0, 0}, 0, {100, 0.1f, 60});
