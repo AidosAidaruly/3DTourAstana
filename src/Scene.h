@@ -3,6 +3,7 @@
 #include "AbuDhabiFurniture.h"
 #include "AbuDhabiLandscaping.h"
 #include "AbuDhabiPlaza.h"
+#include "AkOrda.h"
 #include "Baiterek.h"
 #include "Bench.h"
 #include "Building.h"
@@ -19,9 +20,11 @@
 class Scene
 {
 public:
+    static constexpr Vec3 akOrdaPosition{0, 0, 370};
+
     explicit Scene(const std::filesystem::path& shaderDirectory);
     ~Scene();
-    void render(const Mat4& view, const Mat4& projection) const;
+    void render(const Mat4& view, const Mat4& projection, float time) const;
 
 private:
     Shader shader;
@@ -49,6 +52,16 @@ private:
         StreetLight({9, 0, -36}, 90),
         StreetLight({-9, 0, 36}, -90),
         StreetLight({9, 0, 36}, 90)
+    }};
+
+    // Three low pedestrian-light pairs frame Ak Orda's ceremonial approach.
+    std::array<StreetLight, 6> akOrdaApproachLights{{
+        StreetLight({-54, 0.07f, 245}, -90, 0.72f),
+        StreetLight({54, 0.07f, 245}, 90, 0.72f),
+        StreetLight({-54, 0.07f, 275}, -90, 0.72f),
+        StreetLight({54, 0.07f, 275}, 90, 0.72f),
+        StreetLight({-54, 0.07f, 305}, -90, 0.72f),
+        StreetLight({54, 0.07f, 305}, 90, 0.72f)
     }};
 
     // Four seats border the curved lawns; two frame the camera-side approach.
@@ -79,6 +92,7 @@ private:
     AbuDhabiPlaza abuDhabiPlaza{{-125, 0, 125}};
     AbuDhabiLandscaping abuDhabiLandscaping;
     AbuDhabiFurniture abuDhabiFurniture;
+    AkOrda akOrda{akOrdaPosition};
 
     GLint viewLocation = -1;
     GLint projectionLocation = -1;
@@ -101,6 +115,12 @@ private:
     GLint talanFacadeLocation = -1;
     GLint useGrassLocation = -1;
     GLint useAsphaltLocation = -1;
+    GLint akOrdaStoneLocation = -1;
+    GLint akOrdaRoofLocation = -1;
+    GLint akOrdaWaterLocation = -1;
+    GLint akOrdaWaterJetLocation = -1;
+    GLint akOrdaWaterCenterLocation = -1;
+    GLint sceneTimeLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
     Vec3 lightDirection{-0.5f, -1.0f, -0.3f};
@@ -108,8 +128,8 @@ private:
     float diffuseStrength = 0.65f;
 
     // World scale: 1 unit = 1 meter; Baiterek's reference point stays at the origin.
-    // Cover the Abu Dhabi Plaza roads while retaining the larger city terrain.
-    Mat4 groundModel = modelMatrix({0, 0, -75}, 0, {6, 1, 10.5f});
+    // Keep x = -300..300 and the northern z = -600 edge; extend south to z = 600.
+    Mat4 groundModel = modelMatrix({0, 0, 0}, 0, {6, 1, 12});
 
     // The 100 x 60 meter plaza is centered at the origin; its top is at y = 0.05.
     Mat4 plazaModel = modelMatrix({0, 0, 0}, 0, {100, 0.1f, 60});

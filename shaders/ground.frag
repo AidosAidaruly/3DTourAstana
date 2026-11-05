@@ -22,6 +22,12 @@ uniform int abuDhabiSecondaryFacadeMode;
 uniform bool abuDhabiGlassMaterial;
 uniform bool useGrass;
 uniform bool useAsphalt;
+uniform bool akOrdaStone;
+uniform bool akOrdaRoof;
+uniform bool akOrdaWater;
+uniform bool akOrdaWaterJet;
+uniform vec2 akOrdaWaterCenter;
+uniform float sceneTime;
 uniform int talanFacadeMode;
 
 vec3 shadeGoldenPanels(vec3 normal, vec3 toLight, float lambert)
@@ -148,6 +154,58 @@ void main()
     vec3 toLight = normalize(-lightDirection);
     float lambert = max(dot(normal, toLight), 0.0);
     vec3 color = baseColor * (ambientStrength + diffuseStrength * lambert);
+
+    // The palace's north-facing white stone receives soft daylight fill.
+    // The scene's sun direction and all other materials remain unchanged.
+    if (akOrdaStone)
+    {
+        color = baseColor * (0.79 + 0.21 * lambert);
+    }
+
+    if (akOrdaRoof)
+    {
+        // Bright local fill keeps the north-facing blue dome and gold trim
+        // legible without altering daylight on the rest of the city.
+        vec3 viewDirection = normalize(worldViewDirection);
+        vec3 halfDirection = normalize(toLight + viewDirection);
+        float highlight = pow(max(dot(normal, halfDirection), 0.0), 64.0);
+        color = baseColor * (0.67 + 0.33 * lambert)
+              + vec3(0.08, 0.10, 0.12) * highlight;
+    }
+
+    if (akOrdaWater)
+    {
+        vec2 basinPoint = (worldPosition.xz - akOrdaWaterCenter)
+            / vec2(10.5, 13.0);
+        float radius = length(basinPoint);
+        float ripple = sin(radius * 58.0 - sceneTime * 2.5);
+        float rippleVisibility = 1.0 - smoothstep(
+            0.8, 2.0, fwidth(radius * 58.0)
+        );
+        float fineRipple = sin(radius * 92.0 + sceneTime * 1.6);
+        vec3 water = baseColor * (0.90 + 0.025 * ripple * rippleVisibility
+                                + 0.008 * fineRipple * rippleVisibility);
+        vec3 viewDirection = normalize(worldViewDirection);
+        vec3 halfDirection = normalize(toLight + viewDirection);
+        float glint = pow(max(dot(normal, halfDirection), 0.0), 48.0);
+        color = water * (0.58 + 0.42 * lambert)
+              + vec3(0.07, 0.09, 0.10) * glint;
+    }
+
+    if (akOrdaWaterJet)
+    {
+        vec3 viewDirection = normalize(worldViewDirection);
+        vec3 halfDirection = normalize(toLight + viewDirection);
+        float fresnel = pow(
+            1.0 - max(dot(normal, viewDirection), 0.0), 3.0
+        );
+        float highlight = pow(max(dot(normal, halfDirection), 0.0), 64.0);
+        float flow = 0.018 * sin(localPosition.y * 8.0 - sceneTime * 3.0);
+        vec3 water = baseColor * (0.88 + 0.12 * lambert + flow);
+        color = mix(water, vec3(0.95, 0.98, 1.0),
+                    0.06 + 0.16 * fresnel);
+        color += vec3(0.07, 0.08, 0.08) * highlight;
+    }
 
     if (goldenPanels)
     {

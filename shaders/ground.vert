@@ -7,6 +7,8 @@ layout(location = 2) in vec2 textureCoordinates;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform bool akOrdaWaterJet;
+uniform float sceneTime;
 
 out vec3 worldPosition;
 out vec3 worldNormal;
@@ -16,7 +18,13 @@ out vec3 worldViewDirection;
 
 void main()
 {
-    vec4 world = model * vec4(position, 1.0);
+    vec3 local = position;
+    if (akOrdaWaterJet)
+    {
+        float sway = 0.035 * sin(sceneTime * 2.2 + position.y * 2.7);
+        local.x += sway * (position.y / 3.0);
+    }
+    vec4 world = model * vec4(local, 1.0);
     worldPosition = world.xyz;
     uv = textureCoordinates;
     localPosition = position;

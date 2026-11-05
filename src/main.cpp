@@ -118,7 +118,7 @@ int main(int argc, char** argv)
                      static_cast<float>(width) / static_cast<float>(height)
                  );
 
-            scene.render(view, projection);
+            scene.render(view, projection, static_cast<float>(now));
             glfwSwapBuffers(window);
         }
     }

@@ -208,6 +208,12 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     talanFacadeLocation = shader.uniformLocation("talanFacadeMode");
     useGrassLocation = shader.uniformLocation("useGrass");
     useAsphaltLocation = shader.uniformLocation("useAsphalt");
+    akOrdaStoneLocation = shader.uniformLocation("akOrdaStone");
+    akOrdaRoofLocation = shader.uniformLocation("akOrdaRoof");
+    akOrdaWaterLocation = shader.uniformLocation("akOrdaWater");
+    akOrdaWaterJetLocation = shader.uniformLocation("akOrdaWaterJet");
+    akOrdaWaterCenterLocation = shader.uniformLocation("akOrdaWaterCenter");
+    sceneTimeLocation = shader.uniformLocation("sceneTime");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
     textureRepeatLocation = shader.uniformLocation("textureRepeat");
@@ -221,7 +227,7 @@ Scene::~Scene()
     glDeleteTextures(1, &walkwayTexture);
 }
 
-void Scene::render(const Mat4& view, const Mat4& projection) const
+void Scene::render(const Mat4& view, const Mat4& projection, float time) const
 {
     const float plazaColor[3] = {0.80f, 0.80f, 0.78f};
     const float walkwayColor[3] = {0.52f, 0.53f, 0.54f};
@@ -235,6 +241,11 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     glUniform1i(talanFacadeLocation, 0);
     glUniform1i(useGrassLocation, GL_FALSE);
     glUniform1i(useAsphaltLocation, GL_FALSE);
+    glUniform1i(akOrdaStoneLocation, GL_FALSE);
+    glUniform1i(akOrdaRoofLocation, GL_FALSE);
+    glUniform1i(akOrdaWaterLocation, GL_FALSE);
+    glUniform1i(akOrdaWaterJetLocation, GL_FALSE);
+    glUniform1f(sceneTimeLocation, time);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
     glUniform1f(ambientStrengthLocation, ambientStrength);
@@ -273,6 +284,205 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
     glDisable(GL_POLYGON_OFFSET_FILL);
 
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    // A single tapered stone court joins the processional route to Ak Orda's
+    // entrance stair. Its outer edge descends to the surrounding terrain.
+    constexpr Vec3 palace = akOrdaPosition;
+    Mat4 ceremonialCourt = modelMatrix(
+        {palace.x, 0.07f, palace.z}, 0, {1, 1, 1}
+    );
+
+    glBindTexture(GL_TEXTURE_2D, plazaTexture);
+    glUniform1i(useTextureLocation, GL_TRUE);
+    glUniform3f(objectColorLocation, 0.87f, 0.86f, 0.83f);
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, ceremonialCourt.data());
+    glUniform2f(textureRepeatLocation, 1.0f, 1.0f);
+    mesh.drawCeremonialCourt();
+    glUniform1i(useTextureLocation, GL_FALSE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Flat stone inlays mark a broad clear central axis through the court.
+    glUniform3f(objectColorLocation, 0.77f, 0.76f, 0.73f);
+    for (float side : {-1.0f, 1.0f})
+    {
+        Mat4 inlay = modelMatrix(
+            {palace.x + side * 17.0f, 0.077f, palace.z - 99.0f},
+            0, {0.35f, 0.025f, 102.0f}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, inlay.data());
+        mesh.drawCube();
+    }
+
+    // Long matched parterres integrate the lawns and fountains into the same
+    // paved forecourt, leaving their green interiors for later flower patterns.
+    for (float side : {-1.0f, 1.0f})
+    {
+        float x = palace.x + side * 36.0f;
+        Mat4 stoneBed = modelMatrix(
+            {x, 0.085f, palace.z - 96.0f}, 0, {14.0f, 1.0f, 15.0f}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, stoneBed.data());
+        glUniform3f(objectColorLocation, 0.77f, 0.76f, 0.72f);
+        mesh.drawUnitCapsule();
+
+        Mat4 lawn = modelMatrix(
+            {x, 0.105f, palace.z - 111.0f}, 0, {11.0f, 1.0f, 9.0f}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, lawn.data());
+        glUniform3f(objectColorLocation, 0.34f, 0.47f, 0.32f);
+        glUniform1i(useGrassLocation, GL_TRUE);
+        mesh.drawUnitCapsule();
+        glUniform1i(useGrassLocation, GL_FALSE);
+    }
+
+    constexpr std::array<Vec3, 4> parterreColors{{
+        {0.72f, 0.25f, 0.27f}, // Red border blossoms.
+        {0.88f, 0.71f, 0.28f}, // Yellow diamond outlines.
+        {0.91f, 0.90f, 0.84f}, // Ivory-white inner borders.
+        {0.57f, 0.41f, 0.62f}  // Restrained purple centers.
+    }};
+
+    for (float side : {-1.0f, 1.0f})
+    {
+        // Both beds reuse the same local pattern, which is symmetric about
+        // its own centerline and therefore mirrors across the palace axis.
+        Mat4 pattern = modelMatrix(
+            {palace.x + side * 36.0f, 0.105f, palace.z - 111.0f},
+            0, {1, 1, 1}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, pattern.data());
+        glUniform3f(objectColorLocation, 0.19f, 0.32f, 0.17f);
+        mesh.drawParterreStems();
+
+        for (std::size_t color = 0; color < parterreColors.size(); ++color)
+        {
+            const Vec3& petals = parterreColors[color];
+            glUniform3f(objectColorLocation, petals.x, petals.y, petals.z);
+            mesh.drawParterreFlowers(static_cast<int>(color));
+        }
+    }
+
+    // Narrow planted strips run beside the central stone inlays, leaving a
+    // 34-meter unobstructed route between them.
+    constexpr std::array<Vec3, 2> approachFlowerColors{{
+        {0.84f, 0.70f, 0.30f}, {0.58f, 0.43f, 0.63f}
+    }};
+    constexpr std::array<float, 6> shrubZ{{238, 248, 258, 268, 278, 288}};
+
+    for (float side : {-1.0f, 1.0f})
+    {
+        float x = palace.x + side * 19.5f;
+        float z = palace.z - 108.0f;
+        Mat4 stoneStrip = modelMatrix({x, 0.085f, z}, 0,
+                                       {1.6f, 1.0f, 11.0f});
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, stoneStrip.data());
+        glUniform3f(objectColorLocation, 0.77f, 0.76f, 0.72f);
+        mesh.drawUnitCapsule();
+
+        Mat4 soilStrip = modelMatrix({x, 0.101f, z}, 0,
+                                      {1.3f, 1.0f, 10.5f});
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, soilStrip.data());
+        glUniform3f(objectColorLocation, 0.28f, 0.24f, 0.19f);
+        mesh.drawUnitCapsule();
+
+        Mat4 flowers = modelMatrix({x, 0.101f, z}, 0, {1, 1, 1});
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, flowers.data());
+        glUniform3f(objectColorLocation, 0.19f, 0.32f, 0.17f);
+        mesh.drawApproachFlowerStems();
+
+        for (std::size_t color = 0; color < approachFlowerColors.size(); ++color)
+        {
+            const Vec3& petals = approachFlowerColors[color];
+            glUniform3f(objectColorLocation, petals.x, petals.y, petals.z);
+            mesh.drawApproachFlowers(static_cast<int>(color));
+        }
+
+        // Low border shrubs sit just beyond each flower strip.
+        glUniform3f(objectColorLocation, 0.28f, 0.43f, 0.27f);
+        for (float shrubPositionZ : shrubZ)
+        {
+            Mat4 shrub = modelMatrix(
+                {palace.x + side * 21.8f, 0.37f, shrubPositionZ},
+                0, {0.42f, 0.28f, 0.50f}
+            );
+            glUniformMatrix4fv(modelLocation, 1, GL_FALSE, shrub.data());
+            mesh.drawSphere();
+        }
+    }
+
+    // A flush six-petal stone medallion marks the axis near the entrance.
+    constexpr float accentZ = akOrdaPosition.z - 52.0f;
+    Mat4 accentBase = modelMatrix({palace.x, 0.078f, accentZ}, 0,
+                                  {4.5f, 1.0f, 4.5f});
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, accentBase.data());
+    glUniform3f(objectColorLocation, 0.85f, 0.83f, 0.78f);
+    mesh.drawUnitDisk();
+
+    Mat4 accentRim = modelMatrix({palace.x, 0.080f, accentZ}, 0,
+                                 {4.5f, 1.0f, 4.5f});
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, accentRim.data());
+    glUniform3f(objectColorLocation, 0.71f, 0.69f, 0.64f);
+    mesh.drawUnitRing();
+
+    for (int petal = 0; petal < 6; ++petal)
+    {
+        float angle = 2.0f * pi * petal / 6.0f;
+        Mat4 petalModel = modelMatrix(
+            {palace.x + 2.4f * std::cos(angle), 0.090f,
+             accentZ + 2.4f * std::sin(angle)},
+            90.0f - angle * 180.0f / pi, {0.95f, 1.0f, 1.55f}
+        );
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, petalModel.data());
+        if (petal % 2 == 0)
+        {
+            glUniform3f(objectColorLocation, 0.67f, 0.34f, 0.38f);
+        }
+        else
+        {
+            glUniform3f(objectColorLocation, 0.77f, 0.73f, 0.65f);
+        }
+        mesh.drawUnitDisk();
+    }
+
+    Mat4 accentCenter = modelMatrix({palace.x, 0.100f, accentZ}, 0,
+                                    {0.95f, 1.0f, 0.95f});
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, accentCenter.data());
+    glUniform3f(objectColorLocation, 0.85f, 0.69f, 0.33f);
+    mesh.drawUnitDisk();
+
+    // Each fountain completes the palace end of one elongated parterre.
+    for (float side : {-1.0f, 1.0f})
+    {
+        float x = palace.x + side * 36.0f;
+        float z = palace.z - 67.0f;
+        Mat4 basinWall = modelMatrix({x, 0.085f, z}, 0,
+                                     {10.5f, 0.325f, 13.0f});
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, basinWall.data());
+        glUniform3f(objectColorLocation, 0.80f, 0.79f, 0.75f);
+        mesh.drawUnitCylinderWall();
+
+        Mat4 basinRim = modelMatrix({x, 0.41f, z}, 0,
+                                    {10.5f, 1.0f, 13.0f});
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, basinRim.data());
+        glUniform3f(objectColorLocation, 0.92f, 0.91f, 0.87f);
+        mesh.drawUnitRing();
+
+        Mat4 water = modelMatrix({x, 0.29f, z}, 0,
+                                 {10.5f, 1.0f, 13.0f});
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, water.data());
+        glUniform3f(objectColorLocation, 0.49f, 0.70f, 0.78f);
+        glUniform2f(akOrdaWaterCenterLocation, x, z);
+        glUniform1i(akOrdaWaterLocation, GL_TRUE);
+        mesh.drawUnitDisk();
+        glUniform1i(akOrdaWaterLocation, GL_FALSE);
+
+        Mat4 streams = modelMatrix({x, 0.29f, z}, 0, {1, 1, 1});
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, streams.data());
+        glUniform3f(objectColorLocation, 0.79f, 0.91f, 0.97f);
+        glUniform1i(akOrdaWaterJetLocation, GL_TRUE);
+        mesh.drawFountainJets();
+        glUniform1i(akOrdaWaterJetLocation, GL_FALSE);
+    }
 
     // Four rotations keep the lawns and their small soil beds symmetric.
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -556,12 +766,21 @@ void Scene::render(const Mat4& view, const Mat4& projection) const
         mesh, modelLocation, objectColorLocation, useAsphaltLocation
     );
 
+    glUniform1i(useTextureLocation, GL_FALSE);
+    akOrda.render(mesh, modelLocation, objectColorLocation,
+                  akOrdaStoneLocation, akOrdaRoofLocation);
+
     for (const Tree& tree : trees)
     {
         tree.render(mesh, modelLocation, objectColorLocation);
     }
 
     for (const StreetLight& streetLight : streetLights)
+    {
+        streetLight.render(mesh, modelLocation, objectColorLocation);
+    }
+
+    for (const StreetLight& streetLight : akOrdaApproachLights)
     {
         streetLight.render(mesh, modelLocation, objectColorLocation);
     }

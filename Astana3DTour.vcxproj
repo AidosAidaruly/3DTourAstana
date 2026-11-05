@@ -52,6 +52,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\AkOrda.cpp" />
     <ClCompile Include="src\AbuDhabiFurniture.cpp" />
     <ClCompile Include="src\AbuDhabiLandscaping.cpp" />
     <ClCompile Include="src\AbuDhabiPlaza.cpp" />
@@ -70,6 +71,7 @@
     <ClCompile Include="src\glad.c"><CompileAs>CompileAsC</CompileAs></ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\AkOrda.h" />
     <ClInclude Include="src\AbuDhabiFurniture.h" />
     <ClInclude Include="src\AbuDhabiLandscaping.h" />
     <ClInclude Include="src\AbuDhabiPlaza.h" />

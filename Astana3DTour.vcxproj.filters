@@ -8,6 +8,7 @@
     <Filter Include="Shaders"><UniqueIdentifier>{58F3EEB7-967B-4DD3-9A66-85BE1E240B0B}</UniqueIdentifier></Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\AkOrda.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\AbuDhabiFurniture.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\AbuDhabiLandscaping.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\AbuDhabiPlaza.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -26,6 +27,7 @@
     <ClCompile Include="src\glad.c"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\AkOrda.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\AbuDhabiFurniture.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\AbuDhabiLandscaping.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\AbuDhabiPlaza.h"><Filter>Header Files</Filter></ClInclude>
