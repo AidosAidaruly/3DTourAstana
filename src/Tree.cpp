@@ -10,14 +10,6 @@ Tree::Tree(Vec3 position, float scale, float variation)
         Vec3{0.65f, 4.4f, 0.65f} * scale
     );
 
-    const std::array<Vec3, 4> foliageOffsets{{
-        {-1.0f, 4.6f, 0},
-        {1.0f, 4.9f, 0.4f},
-        {0, 5.2f, -1.0f},
-        {0.1f, 6.3f, 0}
-    }};
-    const std::array<float, 4> foliageRadii{{1.8f, 1.9f, 1.75f, 1.7f}};
-
     // Overlapping clusters connect to the trunk; the highest reaches 8 units.
     for (std::size_t i = 0; i < foliageModels.size(); ++i)
     {

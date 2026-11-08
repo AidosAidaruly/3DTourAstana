@@ -213,6 +213,8 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     akOrdaWaterLocation = shader.uniformLocation("akOrdaWater");
     akOrdaWaterJetLocation = shader.uniformLocation("akOrdaWaterJet");
     akOrdaWaterCenterLocation = shader.uniformLocation("akOrdaWaterCenter");
+    botanicalLakeLocation = shader.uniformLocation("botanicalLake");
+    greenhouseGlassLocation = shader.uniformLocation("greenhouseGlass");
     sceneTimeLocation = shader.uniformLocation("sceneTime");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
@@ -245,6 +247,8 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1i(akOrdaRoofLocation, GL_FALSE);
     glUniform1i(akOrdaWaterLocation, GL_FALSE);
     glUniform1i(akOrdaWaterJetLocation, GL_FALSE);
+    glUniform1i(botanicalLakeLocation, GL_FALSE);
+    glUniform1i(greenhouseGlassLocation, GL_FALSE);
     glUniform1f(sceneTimeLocation, time);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
@@ -256,6 +260,12 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, groundModel.data());
     glUniform1i(useObjectColorLocation, GL_FALSE);
     mesh.drawGround();
+
+    botanicalGarden.render(modelLocation, objectColorLocation,
+                           useObjectColorLocation, useGrassLocation,
+                           useTextureLocation, textureRepeatLocation,
+                           botanicalLakeLocation, plazaTexture);
+
 
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, plazaModel.data());
     glUniform1i(useObjectColorLocation, GL_TRUE);
@@ -789,4 +799,8 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     {
         bench.render(mesh, modelLocation, objectColorLocation);
     }
+    // Draw sorted greenhouse glass after opaque scenery.
+    botanicalGarden.renderGreenhouseGlass(modelLocation, objectColorLocation,
+                                           greenhouseGlassLocation, view);
+
 }

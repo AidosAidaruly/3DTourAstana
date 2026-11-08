@@ -13,6 +13,7 @@
     <ClCompile Include="src\AbuDhabiLandscaping.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\AbuDhabiPlaza.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Bench.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\BotanicalGarden.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\StreetLight.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\TalanTowers.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Tree.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -32,6 +33,7 @@
     <ClInclude Include="src\AbuDhabiLandscaping.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\AbuDhabiPlaza.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Bench.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\BotanicalGarden.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\StreetLight.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\TalanTowers.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Tree.h"><Filter>Header Files</Filter></ClInclude>

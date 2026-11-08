@@ -27,6 +27,8 @@ uniform bool akOrdaRoof;
 uniform bool akOrdaWater;
 uniform bool akOrdaWaterJet;
 uniform vec2 akOrdaWaterCenter;
+uniform bool botanicalLake;
+uniform bool greenhouseGlass;
 uniform float sceneTime;
 uniform int talanFacadeMode;
 
@@ -153,6 +155,28 @@ void main()
     vec3 normal = normalize(worldNormal);
     vec3 toLight = normalize(-lightDirection);
     float lambert = max(dot(normal, toLight), 0.0);
+    if (greenhouseGlass)
+    {
+        vec3 viewDirection = normalize(worldViewDirection);
+        normal = faceforward(normal, -viewDirection, normal);
+        float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
+        float fresnel = 0.04 + 0.96 * pow(1.0 - facing, 5.0);
+        vec3 reflection = reflect(-viewDirection, normal);
+        // Broad sky/horizon reflection, specific to the conservatory glass.
+        // No emissive term or sharp painted streaks; the interior stays visible.
+        vec3 sky = mix(vec3(0.48, 0.57, 0.55), vec3(0.57, 0.74, 0.83),
+                       smoothstep(-0.18, 0.70, reflection.y));
+        float horizon = 1.0 - smoothstep(0.02, 0.35, abs(reflection.y));
+        sky += vec3(0.035, 0.036, 0.032) * horizon;
+        vec3 glass = objectColor * (ambientStrength + diffuseStrength *
+                                    max(dot(normal, toLight), 0.0));
+        glass = mix(glass, sky, 0.26 + 0.34 * fresnel);
+        float highlight = pow(max(dot(normal, normalize(toLight + viewDirection)), 0.0), 48.0);
+        // Two panes still transmit roughly one third of the background face-on.
+        float opacity = 0.40 + 0.16 * fresnel;
+        fragColor = vec4(glass + vec3(0.82, 0.91, 0.93) * highlight * 0.10, opacity);
+        return;
+    }
     vec3 color = baseColor * (ambientStrength + diffuseStrength * lambert);
 
     // The palace's north-facing white stone receives soft daylight fill.
@@ -190,6 +214,25 @@ void main()
         float glint = pow(max(dot(normal, halfDirection), 0.0), 48.0);
         color = water * (0.58 + 0.42 * lambert)
               + vec3(0.07, 0.09, 0.10) * glint;
+    }
+
+    if (botanicalLake)
+    {
+        // Low-amplitude world-space waves keep the shallow lake calm and opaque.
+        float broad = sin(worldPosition.x * 0.72 + sceneTime * 0.55)
+                    * sin(worldPosition.z * 0.88 - sceneTime * 0.42);
+        float finePhase = worldPosition.x * 2.1 + worldPosition.z * 1.4
+                        + sceneTime * 0.7;
+        float fineFade = 1.0 - smoothstep(0.5, 1.5, fwidth(finePhase));
+        vec3 water = baseColor *
+            (0.97 + 0.025 * broad + 0.008 * sin(finePhase) * fineFade);
+        vec3 viewDirection = normalize(worldViewDirection);
+        float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 3.0);
+        vec3 sky = vec3(0.55, 0.72, 0.79);
+        vec3 halfDirection = normalize(toLight + viewDirection);
+        float glint = pow(max(dot(normal, halfDirection), 0.0), 96.0);
+        color = mix(water * (0.72 + 0.28 * lambert), sky,
+                    0.08 + 0.16 * fresnel) + vec3(0.07) * glint;
     }
 
     if (akOrdaWaterJet)

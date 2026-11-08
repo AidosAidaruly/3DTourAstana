@@ -6,6 +6,7 @@
 #include "AkOrda.h"
 #include "Baiterek.h"
 #include "Bench.h"
+#include "BotanicalGarden.h"
 #include "Building.h"
 #include "Math3D.h"
 #include "Mesh.h"
@@ -30,6 +31,7 @@ private:
     Shader shader;
     Mesh mesh;
     Baiterek baiterek;
+    BotanicalGarden botanicalGarden;
     // Two rows of four trees, clear of the walkway and plaza.
     std::array<Tree, 8> trees{{
         Tree({-14, 0, 40}),
@@ -120,6 +122,8 @@ private:
     GLint akOrdaWaterLocation = -1;
     GLint akOrdaWaterJetLocation = -1;
     GLint akOrdaWaterCenterLocation = -1;
+    GLint botanicalLakeLocation = -1;
+    GLint greenhouseGlassLocation = -1;
     GLint sceneTimeLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
@@ -128,8 +132,8 @@ private:
     float diffuseStrength = 0.65f;
 
     // World scale: 1 unit = 1 meter; Baiterek's reference point stays at the origin.
-    // Keep x = -300..300 and the northern z = -600 edge; extend south to z = 600.
-    Mat4 groundModel = modelMatrix({0, 0, 0}, 0, {6, 1, 12});
+    // Extend west for the Botanical Garden: x = -550..300, z = -600..600.
+    Mat4 groundModel = modelMatrix({-125, 0, 0}, 0, {8.5f, 1, 12});
 
     // The 100 x 60 meter plaza is centered at the origin; its top is at y = 0.05.
     Mat4 plazaModel = modelMatrix({0, 0, 0}, 0, {100, 0.1f, 60});
