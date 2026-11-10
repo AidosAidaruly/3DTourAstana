@@ -261,6 +261,10 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1i(useObjectColorLocation, GL_FALSE);
     mesh.drawGround();
 
+    glUniform1i(useObjectColorLocation, GL_TRUE);
+    botanicalGarden.renderRoads(modelLocation, objectColorLocation,
+                               useTextureLocation, useGrassLocation,
+                               useAsphaltLocation, textureRepeatLocation, plazaTexture);
     botanicalGarden.render(modelLocation, objectColorLocation,
                            useObjectColorLocation, useGrassLocation,
                            useTextureLocation, textureRepeatLocation,

@@ -25,6 +25,10 @@ public:
                 GLint botanicalLakeLocation, GLuint stoneTexture) const;
     void renderGreenhouseGlass(GLint modelLocation, GLint objectColorLocation,
                                GLint glassLocation, const Mat4& view) const;
+    void renderRoads(GLint modelLocation, GLint objectColorLocation,
+                     GLint useTextureLocation, GLint useGrassLocation,
+                     GLint useAsphaltLocation, GLint textureRepeatLocation,
+                     GLuint stoneTexture) const;
 
 private:
     struct IndexRange
@@ -92,4 +96,16 @@ private:
     IndexRange entranceSoil;
     IndexRange entranceLeaves;
     IndexRange entranceFlowers[2];
+    IndexRange colonnadeCourt;
+    IndexRange colonnadeStone;
+    IndexRange colonnadeTrim;
+    IndexRange perimeterAsphalt;
+    IndexRange perimeterSidewalks;
+    IndexRange perimeterCurbs;
+    IndexRange perimeterMarkings;
+    IndexRange perimeterLawn;
+    IndexRange perimeterTreeTrunks;
+    IndexRange perimeterTreeFoliage;
+    IndexRange perimeterLightFrames;
+    IndexRange perimeterLightDiffusers;
 };

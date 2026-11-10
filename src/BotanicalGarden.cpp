@@ -124,14 +124,13 @@ namespace
     }
 
     struct PavingOpening { float minX, maxX, minZ, maxZ; };
-    // Existing outer trees remain in four lawn openings; four more openings
-    // hold the new low flowerbeds. The axial spoke stays at its original height.
+    // Preserve the approved forecourt pattern: four lawn openings and four
+    // low flowerbeds. These entrance-only coordinates are transformed together.
     constexpr PavingOpening entranceOpenings[] = {
         {-12.2f, -7.2f, 100.0f, 105.0f}, {7.2f, 12.2f, 100.0f, 105.0f},
         {-27.3f, -22.3f, 97.5f, 102.5f}, {22.3f, 27.3f, 97.5f, 102.5f},
         {-36.5f, -29.5f, 109, 111}, {-21.5f, -14.5f, 109, 111},
-        {14.5f, 21.5f, 109, 111}, {29.5f, 36.5f, 109, 111},
-        {-1.75f, 1.75f, 59, 108}
+        {14.5f, 21.5f, 109, 111}, {29.5f, 36.5f, 109, 111}
     };
 
     GLuint appendVertex(std::vector<float>& vertices, Vec3 point,
@@ -218,6 +217,66 @@ namespace
             vertices[i] = p.x; vertices[i + 1] = p.y; vertices[i + 2] = p.z;
             vertices[i + 3] = n.x; vertices[i + 4] = n.y; vertices[i + 5] = n.z;
         }
+    }
+
+    // Extend the wings smoothly while retaining the approved raised center.
+    // Midpoint local (0,84.5) remains world (-370,-214.5).
+    Vec3 colonnadePoint(float degrees, float radius, float height)
+    {
+        float angle = degrees * pi / 180.0f;
+        float t = std::clamp((std::abs(degrees) - 7.0f) / 27.0f, 0.0f, 1.0f);
+        float blend = t*t*t*(10.0f + t*(-15.0f + 6.0f*t));
+        const float extension = 40.0f / 61.4f - 0.65f * std::sin(34.0f*pi/180.0f);
+        float x = radius * (0.65f * std::sin(std::abs(angle)) + extension * blend);
+        return {degrees < 0 ? -x : x, height, 144.5f - radius * std::cos(angle)};
+    }
+
+    Vec3 colonnadeSurfaceNormal(float degrees, float radius)
+    {
+        Vec3 tangent = colonnadePoint(degrees + 0.01f,radius,0)
+                     - colonnadePoint(degrees - 0.01f,radius,0);
+        return normalize(Vec3{tangent.z,0,-tangent.x});
+    }
+
+    void appendColumnCylinder(std::vector<float>& vertices, std::vector<GLuint>& indices,
+                              Vec3 center, float radius, float bottom, float top)
+    {
+        constexpr int segments = 16;
+        for (int i = 0; i < segments; ++i)
+        {
+            float a = i * 2.0f * pi / segments, b = (i + 1) * 2.0f * pi / segments;
+            Vec3 na{std::cos(a), 0, std::sin(a)}, nb{std::cos(b), 0, std::sin(b)};
+            Vec3 p{center.x + radius * na.x, bottom, center.z + radius * na.z};
+            Vec3 q{center.x + radius * nb.x, bottom, center.z + radius * nb.z};
+            GLuint first = appendVertex(vertices, p, na);
+            appendVertex(vertices, q, nb);
+            appendVertex(vertices, {p.x, top, p.z}, na);
+            appendVertex(vertices, {q.x, top, q.z}, nb);
+            indices.insert(indices.end(), {first, first + 2, first + 1, first + 1, first + 2, first + 3});
+            first = appendVertex(vertices, {center.x, top, center.z});
+            appendVertex(vertices, {q.x, top, q.z}); appendVertex(vertices, {p.x, top, p.z});
+            indices.insert(indices.end(), {first, first + 1, first + 2});
+            first = appendVertex(vertices, {center.x, bottom, center.z}, {0,-1,0});
+            appendVertex(vertices, p, {0,-1,0}); appendVertex(vertices, q, {0,-1,0});
+            indices.insert(indices.end(), {first, first + 1, first + 2});
+        }
+    }
+
+    void appendColonnadeBeam(std::vector<float>& vertices, std::vector<GLuint>& indices,
+                            float a, float b, float inner, float outer, float bottom, float top)
+    {
+        Vec3 p = colonnadePoint(a, inner, bottom), q = colonnadePoint(b, inner, bottom);
+        Vec3 r = colonnadePoint(a, outer, bottom), t = colonnadePoint(b, outer, bottom);
+        Vec3 up{0, top - bottom, 0};
+        Vec3 radial = colonnadeSurfaceNormal((a+b)*0.5f, (inner+outer)*0.5f);
+        appendFace(vertices, indices, p, q, p + up, q + up, radial * -1.0f);
+        appendFace(vertices, indices, r, t, r + up, t + up, radial);
+        appendFace(vertices, indices, p + up, q + up, r + up, t + up, {0,1,0});
+        appendFace(vertices, indices, p, q, r, t, {0,-1,0});
+        appendFace(vertices, indices, p, r, p + up, r + up,
+                   normalize(cross(colonnadePoint(a,outer,0) - colonnadePoint(a,inner,0), Vec3{0,1,0})) * -1.0f);
+        appendFace(vertices, indices, q, t, q + up, t + up,
+                   normalize(cross(colonnadePoint(b,outer,0) - colonnadePoint(b,inner,0), Vec3{0,1,0})));
     }
 
     void appendSteelBeam(std::vector<float>& vertices, std::vector<GLuint>& indices,
@@ -427,18 +486,7 @@ namespace
                         opening = true;
                 if (!opening) appendRectangle(vertices, indices, xs[x], xs[x + 1], zs[z], zs[z + 1], 0.060f);
             }
-        // Widen beside the existing spoke, never place another face on top of it.
-        for (float side : {-1.0f, 1.0f})
-        {
-            GLuint first = appendVertex(vertices, {side * 1.75f, 0.060f, 72});
-            appendVertex(vertices, {side * 1.75f, 0.060f, 82});
-            appendVertex(vertices, {side * 4, 0.060f, 82});
-            if (side > 0) indices.insert(indices.end(), {first, first + 1, first + 2});
-            else indices.insert(indices.end(), {first, first + 2, first + 1});
-            appendRectangle(vertices, indices, side < 0 ? -4.0f : 1.75f,
-                            side < 0 ? -1.75f : 4.0f, 82, 97, 0.060f);
-        }
-        appendRectangle(vertices, indices, -4, 4, 114, 115, 0.060f);
+
     }
 
     void appendDisk(std::vector<float>& vertices, std::vector<GLuint>& indices,
@@ -891,13 +939,13 @@ BotanicalGarden::BotanicalGarden()
                     6.0f, halfDepth, 0.027f);
     appendRectangle(vertices, indices, halfWidth - borderWidth, halfWidth,
                     -halfDepth, halfDepth, 0.027f);
+    // The arrival apron crosses the northern boundary. Restore the old
+    // southern edge and open only the border under the relocated forecourt.
+    appendRectangle(vertices, indices, -halfWidth + borderWidth, -40,
+                    -halfDepth, -halfDepth + borderWidth, 0.027f);
+    appendRectangle(vertices, indices, 40, halfWidth - borderWidth,
+                    -halfDepth, -halfDepth + borderWidth, 0.027f);
     appendRectangle(vertices, indices, -halfWidth + borderWidth,
-                    halfWidth - borderWidth, -halfDepth,
-                    -halfDepth + borderWidth, 0.027f);
-    // Open only the southern boundary border for the new eight-meter entrance.
-    appendRectangle(vertices, indices, -halfWidth + borderWidth,
-                    -4, halfDepth - borderWidth, halfDepth, 0.027f);
-    appendRectangle(vertices, indices, 4,
                     halfWidth - borderWidth, halfDepth - borderWidth, halfDepth, 0.027f);
     finishRange(border);
 
@@ -1129,6 +1177,18 @@ BotanicalGarden::BotanicalGarden()
                                                 0.12f + 0.19f * column);
                 if (isOuterPlantingSite(root, crownRadius))
                 {
+                    // Only this broadleaf crown approached the gate's western
+                    // rear support. Move it 1.29 m away, retaining its size.
+                    if (sector == 6 && row == 3 && column == 2)
+                        root = root + Vec3{0.21f, 0, 1.27f};
+                    // Four individual outer-grove trees shift as mirrored pairs
+                    // to clear the enlarged wings; no planting rows are removed.
+                    if (row == 2 && ((sector == 1 && column == 3) || (sector == 2 && column == 1)))
+                        root = {sector == 1 ? 22.7f : -22.7f, root.y, 92.8f};
+                    // Only this outer pair moves a further 2.8 m inward to
+                    // clear the new end bays, preserving the grove rhythm.
+                    if (row == 3 && column == 2 && (sector == 1 || sector == 2))
+                        root = {sector == 1 ? 43.8f : -43.8f, root.y, 93.0f};
                     trees.push_back({root, scale, kind});
                 }
             }
@@ -1377,11 +1437,379 @@ BotanicalGarden::BotanicalGarden()
         finishRange(blossoms[color]);
     }
 
-    // Southern gate: local (0, 90) -> world (-370, -220), facing world +Z.
-    // All existing trees remain in the forecourt's four lawn openings.
+    // Perimeter streets are authored in world coordinates for a direct audit
+    // against the district (-475..-265, -245..-15). Disjoint rectangles share
+    // edges at the four square junctions; no asphalt faces overlap.
+    auto roadBox = [&vertices, &indices](float x0, float x1, float z0, float z1,
+                                         float bottom, float top)
+    {
+        appendBox(vertices, indices, center.x-x1, center.x-x0, bottom, top,
+                  center.z-z1, center.z-z0);
+    };
+    perimeterAsphalt.firstIndex = indices.size();
+    roadBox(-496,-244,6,18,0,0.04f);
+    roadBox(-496,-244,-266,-254,0,0.04f);
+    roadBox(-496,-484,-254,6,0,0.04f);
+    roadBox(-256,-244,-254,6,0,0.04f);
+    finishRange(perimeterAsphalt);
+
+    perimeterSidewalks.firstIndex = indices.size();
+    roadBox(-484,-256,1,6,0,0.060f);
+    roadBox(-484,-256,-254,-249,0,0.060f);
+    roadBox(-484,-479,-249,1,0,0.060f);
+    roadBox(-261,-256,-249,1,0,0.060f);
+    // The widened north sidewalk now meets the approved apron at Z=+1.
+    // The south radial path ends at Z=-238, width 3.5 m. A symmetric taper
+    // joins it to the sidewalk without overlapping approved paving.
+    appendQuad(vertices,indices,
+        {center.x+373,0.060f,center.z+249}, {center.x+367,0.060f,center.z+249},
+        {center.x+371.75f,0.060f,center.z+238}, {center.x+368.25f,0.060f,center.z+238});
+    // Retain the original east pedestrian entrance through the planting strip.
+    roadBox(-265,-261,-134,-126,0,0.060f);
+    // Small receiving landings beyond the road give both crossings a paved end.
+    roadBox(-374,-366,18,21,0,0.060f);
+    roadBox(-374,-366,-269,-266,0,0.060f);
+    // Outer 5 m pedestrian ring. Preserve the two existing crossing landings
+    // and fill around them, avoiding coplanar duplicate surfaces.
+    roadBox(-501,-374,18,23,0,0.060f);
+    roadBox(-366,-239,18,23,0,0.060f);
+    roadBox(-374,-366,21,23,0,0.060f);
+    roadBox(-501,-374,-271,-266,0,0.060f);
+    roadBox(-366,-239,-271,-266,0,0.060f);
+    roadBox(-374,-366,-271,-269,0,0.060f);
+    roadBox(-501,-496,-266,18,0,0.060f);
+    roadBox(-244,-239,-266,18,0,0.060f);
+    finishRange(perimeterSidewalks);
+
+    perimeterCurbs.firstIndex = indices.size();
+    for (float z : {-254.0f,5.75f})
+    {
+        roadBox(-484,-374,z,z+0.25f,0.04f,0.16f);
+        roadBox(-366,-256,z,z+0.25f,0.04f,0.16f);
+    }
+    roadBox(-484,-483.75f,-253.75f,5.75f,0.04f,0.16f);
+    roadBox(-256.25f,-256,-253.75f,5.75f,0.04f,0.16f);
+    // Low lawn edging follows the widened pedestrian ring. Street curbs above
+    // remain unchanged; this edging is on the garden side of the sidewalk.
+    roadBox(-479,-478.88f,-249,1,0.018f,0.095f);
+    for (float z0 : {-249.0f,-121.0f})
+        roadBox(-261.12f,-261,z0,z0 < -200 ? -139.0f : 1.0f,0.018f,0.095f);
+    roadBox(-478.88f,-374,-249,-248.88f,0.018f,0.095f);
+    roadBox(-366,-261.12f,-249,-248.88f,0.018f,0.095f);
+    roadBox(-478.88f,-410,0.88f,1,0.018f,0.095f);
+    roadBox(-330,-261.12f,0.88f,1,0.018f,0.095f);
+    // Outer street curbs match the inner curbs. The horizontal pieces include
+    // the small corner squares, and both crossings retain 8 m curb openings.
+    for (float z : {-266.25f,18.0f})
+    {
+        roadBox(-496.25f,-374,z,z+0.25f,0.04f,0.16f);
+        roadBox(-366,-243.75f,z,z+0.25f,0.04f,0.16f);
+    }
+    roadBox(-496.25f,-496,-266,18,0.04f,0.16f);
+    roadBox(-244,-243.75f,-266,18,0.04f,0.16f);
+    finishRange(perimeterCurbs);
+
+    perimeterMarkings.firstIndex = indices.size();
+    auto roadPaint = [&vertices,&indices](float x0,float x1,float z0,float z1)
+    {
+        appendRectangle(vertices,indices,center.x-x1,center.x-x0,
+                        center.z-z1,center.z-z0,0.046f);
+    };
+    // Three-meter dashes, three-meter gaps; stop short of junctions and zebras.
+    for (float x=-481; x+3<=-259; x+=6)
+    {
+        if (x+3>-375 && x<-365) continue;
+        roadPaint(x,x+3,11.925f,12.075f);
+        roadPaint(x,x+3,-260.075f,-259.925f);
+    }
+    for (float z=-250; z+3<=2; z+=6)
+    {
+        roadPaint(-490.075f,-489.925f,z,z+3);
+        roadPaint(-250.075f,-249.925f,z,z+3);
+    }
+    for (int stripe=0; stripe<8; ++stripe)
+    {
+        float offset=0.65f+stripe*1.4f;
+        roadPaint(-373,-367,6+offset,6+offset+0.8f);
+        roadPaint(-373,-367,-266+offset,-266+offset+0.8f);
+    }
+    finishRange(perimeterMarkings);
+
+    // Fill the former exposed-terrain band with disjoint, softly varied lawn
+    // surfaces. No global terrain material changes are needed.
+    perimeterLawn.firstIndex = indices.size();
+    auto worldLawn = [&vertices,&indices](float x0,float x1,float z0,float z1)
+    {
+        appendRectangle(vertices,indices,center.x-x1,center.x-x0,
+                        center.z-z1,center.z-z0,0.055f);
+    };
+    worldLawn(-479,-475,-249,1);
+    worldLawn(-265,-261,-249,-134);
+    worldLawn(-265,-261,-126,1);
+    worldLawn(-475,-410,-15,1);
+    worldLawn(-330,-265,-15,1);
+    // South planting ends exactly on the tapered approach, leaving no green
+    // overlay on the pedestrian connection and no checker-patterned slivers.
+    float southHalfWidth = 3.0f - 1.25f * (4.0f/11.0f);
+    auto localLawn = [](float x,float z) { return Vec3{center.x-x,0.055f,center.z-z}; };
+    appendQuad(vertices,indices,localLawn(-475,-249),localLawn(-373,-249),
+               localLawn(-475,-245),localLawn(-370-southHalfWidth,-245));
+    appendQuad(vertices,indices,localLawn(-367,-249),localLawn(-265,-249),
+               localLawn(-370+southHalfWidth,-245),localLawn(-265,-245));
+    finishRange(perimeterLawn);
+
+    struct StreetTree { Vec3 local; float scale; };
+    std::vector<StreetTree> streetTrees;
+    auto addStreetTree = [&](float x,float z)
+    {
+        float scale = 0.43f + 0.02f * (streetTrees.size()%3);
+        Vec3 root{center.x-x,0.055f,center.z-z};
+        float crown = 2.9f*scale;
+        if (!clearOfTreeCrowns(root,crown)) return;
+        for (const GardenTree& tree : lakeTrees)
+        {
+            Vec3 delta = root-tree.root;
+            if (dot(delta,delta) < (crown+1.6f+0.6f)*(crown+1.6f+0.6f)) return;
+        }
+        streetTrees.push_back({root,scale});
+    };
+    // Selected 10 m rows, with central sightlines and the east entrance clear.
+    for (float z=-233;z<=-23;z+=10)
+    {
+        addStreetTree(-477,z);
+        if (std::abs(z+130)>9) addStreetTree(-263,z);
+    }
+    for (float x=-467;x<=-277;x+=10)
+        if (std::abs(x+370)>55)
+        {
+            addStreetTree(x,-247);
+            addStreetTree(x,-7);
+        }
+    perimeterTreeTrunks.firstIndex=indices.size();
+    for (const StreetTree& tree : streetTrees)
+    {
+        Vec3 root=tree.local; float r=0.325f*tree.scale;
+        appendBox(vertices,indices,root.x-r,root.x+r,root.y,root.y+4.4f*tree.scale,root.z-r,root.z+r);
+    }
+    finishRange(perimeterTreeTrunks);
+    perimeterTreeFoliage.firstIndex=indices.size();
+    for (const StreetTree& tree : streetTrees)
+        for (std::size_t cluster=0;cluster<Tree::foliageOffsets.size();++cluster)
+        {
+            float r=Tree::foliageRadii[cluster]*tree.scale;
+            appendPlantEllipsoid(vertices,indices,tree.local+Tree::foliageOffsets[cluster]*tree.scale,{r,r,r});
+        }
+    finishRange(perimeterTreeFoliage);
+
+    const Vec3 streetLightSites[] = {{-477,90,-218},{-477,90,-58},
+        {-263,-90,-218},{-263,-90,-58},{-442,0,-247},{-292,0,-247},
+        {-442,180,-7},{-292,180,-7}}; // Y stores world orientation, not height.
+    perimeterLightFrames.firstIndex=indices.size();
+    for (Vec3 site : streetLightSites)
+    {
+        StreetLight light({center.x-site.x,0.055f,center.z-site.z},site.y-180,0.72f);
+        for (const Mat4& part:light.metalTransforms()) appendFurniturePart(vertices,indices,part);
+    }
+    finishRange(perimeterLightFrames);
+    perimeterLightDiffusers.firstIndex=indices.size();
+    for (Vec3 site : streetLightSites)
+    {
+        StreetLight light({center.x-site.x,0.055f,center.z-site.z},site.y-180,0.72f);
+        appendFurniturePart(vertices,indices,light.diffuserTransform());
+    }
+    finishRange(perimeterLightDiffusers);
+
+    // Finished second entrance: 32 columns with 10.2 m curved extensions.
+    // Fully inside the perimeter. The first gate and its
+    // forecourt below retain their existing geometry and transform.
+    colonnadeCourt.firstIndex = indices.size();
+    auto emitCourtPolygon = [&vertices, &indices](const std::vector<Vec3>& polygon)
+    {
+        for (std::size_t i = 1; i + 1 < polygon.size(); ++i)
+        {
+            float area = cross(polygon[i] - polygon[0], polygon[i + 1] - polygon[0]).y;
+            if (std::abs(area) < 0.000001f) continue;
+            GLuint first = appendVertex(vertices, polygon[0]);
+            appendVertex(vertices, polygon[i]); appendVertex(vertices, polygon[i + 1]);
+            if (area > 0) indices.insert(indices.end(), {first, first+1, first+2});
+            else indices.insert(indices.end(), {first, first+2, first+1});
+        }
+    };
+    for (int segment = -48; segment < 48; ++segment)
+    {
+        std::vector<Vec3> polygon{colonnadePoint(static_cast<float>(segment),58,0.060f),
+            colonnadePoint(static_cast<float>(segment+1),58,0.060f),
+            colonnadePoint(static_cast<float>(segment+1),62,0.060f),
+            colonnadePoint(static_cast<float>(segment),62,0.060f)};
+        // Subtract the existing axial paving, leaving an exact, flush junction.
+        for (int edge = 0; edge < 4 && !polygon.empty(); ++edge)
+        {
+            auto distance = [edge](Vec3 p)
+            {
+                return edge == 0 ? p.x + 1.75f : edge == 1 ? 1.75f-p.x
+                     : edge == 2 ? p.z-59.0f : 108.0f-p.z;
+            };
+            std::vector<Vec3> inside, outside;
+            Vec3 prior = polygon.back(); float dp = distance(prior);
+            for (Vec3 current : polygon)
+            {
+                float dc = distance(current);
+                if ((dp >= 0) != (dc >= 0))
+                {
+                    Vec3 intersection = prior + (current-prior)*(dp/(dp-dc));
+                    inside.push_back(intersection); outside.push_back(intersection);
+                }
+                (dc >= 0 ? inside : outside).push_back(current);
+                prior = current; dp = dc;
+            }
+            emitCourtPolygon(outside); polygon = std::move(inside);
+        }
+    }
+    finishRange(colonnadeCourt);
+
+    colonnadeStone.firstIndex = indices.size();
+    for (float side : {-1.0f,1.0f})
+        for (int column = 0; column < 16; ++column)
+        {
+            float angle = column < 13 ? 6.0f + (28.0f / 12.0f) * column
+                : 34.0f + 4.0f * (column - 12);
+            Vec3 p = colonnadePoint(side*angle,60,0);
+            float top = angle < 7 ? 10.3f : 9.1f;
+            appendColumnCylinder(vertices,indices,p,0.54f,0.48f,top-0.40f);
+        }
+    for (int segment = -46; segment < 46; ++segment)
+    {
+        float bottom = std::abs(segment+0.5f) < 7 ? 10.3f : 9.1f;
+        appendColonnadeBeam(vertices,indices,static_cast<float>(segment),static_cast<float>(segment+1),
+                            58.95f,61.05f,bottom,bottom+1.35f);
+    }
+    finishRange(colonnadeStone);
+
+    colonnadeTrim.firstIndex = indices.size();
+    for (float side : {-1.0f,1.0f})
+        for (int column = 0; column < 16; ++column)
+        {
+            float angle = column < 13 ? 6.0f + (28.0f / 12.0f) * column
+                : 34.0f + 4.0f * (column - 12);
+            Vec3 p = colonnadePoint(side*angle,60,0);
+            float top = angle < 7 ? 10.3f : 9.1f;
+            appendColumnCylinder(vertices,indices,p,0.95f,0.060f,0.22f);
+            appendColumnCylinder(vertices,indices,p,0.78f,0.22f,0.34f);
+            appendColumnCylinder(vertices,indices,p,0.65f,0.34f,0.48f);
+            appendColumnCylinder(vertices,indices,p,0.66f,top-0.40f,top-0.26f);
+            appendColumnCylinder(vertices,indices,p,0.82f,top-0.26f,top-0.12f);
+            appendColumnCylinder(vertices,indices,p,0.95f,top-0.12f,top);
+        }
+    for (int segment = -46; segment < 46; ++segment)
+    {
+        float top = std::abs(segment+0.5f) < 7 ? 11.65f : 10.45f;
+        appendColonnadeBeam(vertices,indices,static_cast<float>(segment),static_cast<float>(segment+1),
+                            59.0f,61.0f,top,top+0.18f);
+        appendColonnadeBeam(vertices,indices,static_cast<float>(segment),static_cast<float>(segment+1),
+                            58.6f,61.4f,top+0.18f,top+0.40f);
+    }
+    // Layered rounded terminal caps finish the final columns without adding
+    // tall finials or closing the open colonnade. The central portico is intact.
+    for (float side : {-1.0f, 1.0f})
+    {
+        Vec3 end = colonnadePoint(side * 46.0f, 60, 0);
+        appendColumnCylinder(vertices, indices, end, 1.20f, 10.85f, 10.97f);
+        appendColumnCylinder(vertices, indices, end, 1.05f, 10.97f, 11.07f);
+    }
+    finishRange(colonnadeTrim);
+
+    // Move the saved gate as one rigid assembly: 180 degrees about Y,
+    // then local Z -= 17. Anchor (-370, -220) becomes (-370, -23).
+    // The northern apron sits immediately outside the district boundary.
+    auto relocateEntranceVertices = [&vertices](std::size_t first)
+    {
+        for (std::size_t i = first; i < vertices.size(); i += 8)
+        {
+            vertices[i] = -vertices[i];
+            vertices[i + 2] = -vertices[i + 2] - 17.0f;
+            vertices[i + 3] = -vertices[i + 3];
+            vertices[i + 5] = -vertices[i + 5];
+        }
+    };
     entrancePaving.firstIndex = indices.size();
+    std::size_t pavingFirstVertex = vertices.size();
     appendEntranceCourt(vertices, indices);
+    relocateEntranceVertices(pavingFirstVertex);
+    // A C2-continuous approach has no hard corners or miter spikes.
+    // Start centered on the gate, pass the lake, then merge onto the existing
+    // 3.5 m radial spoke without laying coplanar paving over it.
+    auto ease = [](float t)
+    {
+        t = std::clamp(t, 0.0f, 1.0f);
+        return t * t * t * (10.0f + t * (-15.0f + 6.0f * t));
+    };
+    auto pathCenter = [&ease](float z)
+    {
+        float x = z < -90 ? 12.0f * ease((z + 108.0f) / 18.0f)
+            : z < -78 ? 12.0f : 12.0f * (1.0f - ease((z + 78.0f) / 15.0f));
+        return Vec3{x, 0.060f, z};
+    };
+    auto pathEdges = [&ease, &pathCenter](float z)
+    {
+        Vec3 point = pathCenter(z);
+        Vec3 tangent = pathCenter(z + 0.005f) - pathCenter(z - 0.005f);
+        Vec3 normal = normalize(Vec3{tangent.z, 0, -tangent.x});
+        float approachHalfWidth = 3.0f - 0.5f * ease((z + 114.0f) / 18.0f)
+            - 0.75f * ease((z + 72.0f) / 9.0f);
+        return std::array<Vec3, 2>{{point - normal * approachHalfWidth, point + normal * approachHalfWidth}};
+    };
+    auto emitPolygon = [&vertices, &indices](const std::vector<Vec3>& polygon)
+    {
+        if (polygon.size() < 3) return;
+        for (std::size_t i = 1; i + 1 < polygon.size(); ++i)
+        {
+            if (std::abs(cross(polygon[i] - polygon[0], polygon[i + 1] - polygon[0]).y) < 0.000001f) continue;
+            GLuint first = appendVertex(vertices, polygon[0]);
+            appendVertex(vertices, polygon[i]); appendVertex(vertices, polygon[i + 1]);
+            if (cross(polygon[i] - polygon[0], polygon[i + 1] - polygon[0]).y > 0)
+                indices.insert(indices.end(), {first, first + 1, first + 2});
+            else indices.insert(indices.end(), {first, first + 2, first + 1});
+        }
+    };
+    auto emitBesideSpoke = [&emitPolygon](std::vector<Vec3> polygon)
+    {
+        // Subtract the approved x=-1.75..1.75, z=-69..-59 spoke rectangle.
+        // Each outside fragment is emitted once; the inside fragment is omitted.
+        for (int edge = 0; edge < 4 && !polygon.empty(); ++edge)
+        {
+            auto distance = [edge](Vec3 p)
+            {
+                return edge == 0 ? p.x + 1.75f : edge == 1 ? 1.75f - p.x
+                     : edge == 2 ? p.z + 69.0f : -59.0f - p.z;
+            };
+            std::vector<Vec3> inside, outside;
+            Vec3 previous = polygon.back();
+            float prior = distance(previous);
+            for (Vec3 current : polygon)
+            {
+                float next = distance(current);
+                if ((prior >= 0) != (next >= 0))
+                {
+                    Vec3 intersection = previous + (current - previous) * (prior / (prior - next));
+                    inside.push_back(intersection); outside.push_back(intersection);
+                }
+                (next >= 0 ? inside : outside).push_back(current);
+                previous = current; prior = next;
+            }
+            emitPolygon(outside);
+            polygon = std::move(inside);
+        }
+    };
+    constexpr int approachSegments = 160;
+    for (int segment = 0; segment < approachSegments; ++segment)
+    {
+        float z0 = -114.0f + 51.0f * segment / approachSegments;
+        float z1 = -114.0f + 51.0f * (segment + 1) / approachSegments;
+        auto a = pathEdges(z0), b = pathEdges(z1);
+        emitBesideSpoke({a[0], a[1], b[1], b[0]});
+    }
     finishRange(entrancePaving);
+    const std::size_t gateFirstVertex = vertices.size();
 
     entranceStone.firstIndex = indices.size();
     for (float x : {-38.0f, -29.0f, -15.0f, 15.0f, 29.0f, 38.0f})
@@ -1466,6 +1894,8 @@ BotanicalGarden::BotanicalGarden()
             }
         finishRange(entranceFlowers[color]);
     }
+
+    relocateEntranceVertices(gateFirstVertex);
 
     greenhouseStone.firstIndex = indices.size();
     appendBox(vertices, indices, greenhouseMinX, greenhouseMaxX, 0.018f, 0.09f,
@@ -1804,6 +2234,7 @@ void BotanicalGarden::render(GLint modelLocation, GLint objectColorLocation,
     drawRange(bridgeDecks);
     drawRange(greenhouseStone);
     drawRange(entrancePaving);
+    drawRange(colonnadeCourt);
 
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform1i(botanicalLakeLocation, GL_TRUE);
@@ -1833,8 +2264,12 @@ void BotanicalGarden::render(GLint modelLocation, GLint objectColorLocation,
     drawRange(greenhouseSoil);
     glUniform3f(objectColorLocation, 0.88f, 0.87f, 0.83f);
     drawRange(entranceStone);
+    glUniform3f(objectColorLocation, 0.95f, 0.94f, 0.90f);
+    drawRange(colonnadeStone);
     glUniform3f(objectColorLocation, 0.78f, 0.78f, 0.74f);
     drawRange(entranceTrim);
+    glUniform3f(objectColorLocation, 0.89f, 0.89f, 0.85f);
+    drawRange(colonnadeTrim);
     glUniform3f(objectColorLocation, 0.30f, 0.25f, 0.18f);
     drawRange(entranceSoil);
     glUniform3f(objectColorLocation, 0.26f, 0.43f, 0.23f);
@@ -1872,6 +2307,46 @@ void BotanicalGarden::render(GLint modelLocation, GLint objectColorLocation,
     drawRange(entranceSigns);
     glUniform1i(useTextureLocation, GL_FALSE);
     glBindTexture(GL_TEXTURE_2D, 0);
+    glBindVertexArray(0);
+}
+
+void BotanicalGarden::renderRoads(GLint modelLocation, GLint objectColorLocation,
+                                  GLint useTextureLocation, GLint useGrassLocation,
+                                  GLint useAsphaltLocation, GLint textureRepeatLocation,
+                                  GLuint stoneTexture) const
+{
+    glUniformMatrix4fv(modelLocation,1,GL_FALSE,model.data());
+    glBindVertexArray(vao);
+    glUniform1i(useGrassLocation,GL_FALSE);
+    glUniform1i(useTextureLocation,GL_FALSE);
+    glUniform1i(useGrassLocation,GL_TRUE);
+    glUniform3f(objectColorLocation,0.37f,0.53f,0.35f);
+    drawRange(perimeterLawn);
+    glUniform1i(useGrassLocation,GL_FALSE);
+    glUniform1i(useAsphaltLocation,GL_TRUE);
+    glUniform3f(objectColorLocation,0.22f,0.24f,0.25f);
+    drawRange(perimeterAsphalt);
+    glUniform1i(useAsphaltLocation,GL_FALSE);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D,stoneTexture);
+    glUniform2f(textureRepeatLocation,1,1);
+    glUniform1i(useTextureLocation,GL_TRUE);
+    glUniform3f(objectColorLocation,0.78f,0.79f,0.76f);
+    drawRange(perimeterSidewalks);
+    glUniform1i(useTextureLocation,GL_FALSE);
+    glUniform3f(objectColorLocation,0.77f,0.77f,0.74f);
+    drawRange(perimeterCurbs);
+    glUniform3f(objectColorLocation,0.87f,0.87f,0.82f);
+    drawRange(perimeterMarkings);
+    glUniform3f(objectColorLocation,0.36f,0.22f,0.12f);
+    drawRange(perimeterTreeTrunks);
+    glUniform3f(objectColorLocation,0.25f,0.44f,0.25f);
+    drawRange(perimeterTreeFoliage);
+    glUniform3f(objectColorLocation,0.62f,0.65f,0.67f);
+    drawRange(perimeterLightFrames);
+    glUniform3f(objectColorLocation,0.86f,0.88f,0.84f);
+    drawRange(perimeterLightDiffusers);
+    glBindTexture(GL_TEXTURE_2D,0);
     glBindVertexArray(0);
 }
 
