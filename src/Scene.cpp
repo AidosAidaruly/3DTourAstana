@@ -200,6 +200,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     diffuseStrengthLocation = shader.uniformLocation("diffuseStrength");
     goldenPanelsLocation = shader.uniformLocation("goldenPanels");
     shaftGlassLocation = shader.uniformLocation("shaftGlass");
+    nurAlemFacadeLocation = shader.uniformLocation("nurAlemFacade");
     abuDhabiFacadeLocation = shader.uniformLocation("abuDhabiFacade");
     abuDhabiSecondaryFacadeLocation =
         shader.uniformLocation("abuDhabiSecondaryFacadeMode");
@@ -215,6 +216,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     akOrdaWaterCenterLocation = shader.uniformLocation("akOrdaWaterCenter");
     botanicalLakeLocation = shader.uniformLocation("botanicalLake");
     greenhouseGlassLocation = shader.uniformLocation("greenhouseGlass");
+    expoCanopyGlassLocation = shader.uniformLocation("expoCanopyGlass");
     sceneTimeLocation = shader.uniformLocation("sceneTime");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
@@ -235,6 +237,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     const float walkwayColor[3] = {0.52f, 0.53f, 0.54f};
 
     shader.use();
+    glUniform1i(nurAlemFacadeLocation, GL_FALSE);
     glUniform1i(goldenPanelsLocation, GL_FALSE);
     glUniform1i(shaftGlassLocation, GL_FALSE);
     glUniform1i(abuDhabiFacadeLocation, GL_FALSE);
@@ -249,6 +252,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1i(akOrdaWaterJetLocation, GL_FALSE);
     glUniform1i(botanicalLakeLocation, GL_FALSE);
     glUniform1i(greenhouseGlassLocation, GL_FALSE);
+    glUniform1i(expoCanopyGlassLocation, GL_FALSE);
     glUniform1f(sceneTimeLocation, time);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
@@ -260,6 +264,9 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, groundModel.data());
     glUniform1i(useObjectColorLocation, GL_FALSE);
     mesh.drawGround();
+
+    expoDistrict.render(modelLocation, objectColorLocation, useObjectColorLocation,
+                        useGrassLocation, useTextureLocation, textureRepeatLocation, plazaTexture, shaftGlassLocation, nurAlemFacadeLocation);
 
     glUniform1i(useObjectColorLocation, GL_TRUE);
     botanicalGarden.renderRoads(modelLocation, objectColorLocation,
@@ -803,8 +810,18 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     {
         bench.render(mesh, modelLocation, objectColorLocation);
     }
-    // Draw sorted greenhouse glass after opaque scenery.
-    botanicalGarden.renderGreenhouseGlass(modelLocation, objectColorLocation,
-                                           greenhouseGlassLocation, view);
-
+    // These glass volumes occupy distant, disjoint districts. Order the two
+    // batches back-to-front, with per-triangle sorting inside each volume.
+    // Both follow all opaque scenery and restore blending/depth-write state.
+    auto depth = [&](Vec3 p) { return view[2]*p.x + view[6]*p.y + view[10]*p.z; };
+    auto greenhouse = [&] {
+        botanicalGarden.renderGreenhouseGlass(modelLocation, objectColorLocation,
+                                               greenhouseGlassLocation, view);
+    };
+    auto canopy = [&] {
+        expoDistrict.renderCanopyGlass(modelLocation, objectColorLocation,
+                                       expoCanopyGlassLocation, view);
+    };
+    if (depth(ExpoDistrict::center) < depth(BotanicalGarden::center)) { canopy(); greenhouse(); }
+    else { greenhouse(); canopy(); }
 }

@@ -7,6 +7,7 @@ struct GLFWwindow;
 class Camera
 {
 public:
+    void setViewpoint(Vec3 eye, Vec3 target);
     void processInput(GLFWwindow* window, float dt);
     void mouseLook(double x, double y);
     void resetMouse();

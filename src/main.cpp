@@ -5,9 +5,21 @@
 #include "Scene.h"
 
 #include <algorithm>
+#include <array>
 #include <exception>
 #include <filesystem>
 #include <iostream>
+
+namespace
+{
+    struct LandmarkViewpoint
+    {
+        int key;
+        Vec3 eye;
+        Vec3 target;
+        bool wasPressed = false;
+    };
+}
 
 int main(int argc, char** argv)
 {
@@ -49,6 +61,17 @@ int main(int argc, char** argv)
     }
 
     Camera camera;
+    constexpr Vec3 botanicalGarden = BotanicalGarden::center;
+    constexpr Vec3 expo = ExpoDistrict::center;
+    std::array<LandmarkViewpoint, 2> viewpoints{{
+        // 6: Just inside the east entrance, looking along the garden axis.
+        {GLFW_KEY_6, {botanicalGarden.x + 101.0f, 3.0f, botanicalGarden.z},
+         botanicalGarden},
+        // 7: East processional route, facing Nur Alem and its main public lobby.
+        {GLFW_KEY_7, {expo.x + 130.0f, 3.0f, expo.z},
+         {expo.x, 42.0f, expo.z}}
+    }};
+
     glfwSetWindowUserPointer(window, &camera);
 
     glfwSwapInterval(1);
@@ -95,7 +118,21 @@ int main(int argc, char** argv)
 
             glfwPollEvents();
 
-            if (glfwGetWindowAttrib(window, GLFW_FOCUSED))
+            bool focused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
+
+            for (LandmarkViewpoint& viewpoint : viewpoints)
+            {
+                bool pressed = glfwGetKey(window, viewpoint.key) == GLFW_PRESS;
+
+                if (focused && pressed && !viewpoint.wasPressed)
+                {
+                    camera.setViewpoint(viewpoint.eye, viewpoint.target);
+                }
+
+                viewpoint.wasPressed = pressed;
+            }
+
+            if (focused)
             {
                 camera.processInput(window, dt);
             }

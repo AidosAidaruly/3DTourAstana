@@ -58,6 +58,10 @@
     <ClCompile Include="src\AbuDhabiPlaza.cpp" />
     <ClCompile Include="src\Bench.cpp" />
     <ClCompile Include="src\BotanicalGarden.cpp" />
+    <ClCompile Include="src\ExpoDistrict.cpp" />
+    <ClCompile Include="src\ExpoCanopy.cpp" />
+    <ClCompile Include="src\NurAlem.cpp" />
+    <ClCompile Include="src\ExpoPavilion.cpp" />
     <ClCompile Include="src\StreetLight.cpp" />
     <ClCompile Include="src\TalanTowers.cpp" />
     <ClCompile Include="src\Tree.cpp" />
@@ -78,6 +82,10 @@
     <ClInclude Include="src\AbuDhabiPlaza.h" />
     <ClInclude Include="src\Bench.h" />
     <ClInclude Include="src\BotanicalGarden.h" />
+    <ClInclude Include="src\ExpoDistrict.h" />
+    <ClInclude Include="src\ExpoCanopy.h" />
+    <ClInclude Include="src\NurAlem.h" />
+    <ClInclude Include="src\ExpoPavilion.h" />
     <ClInclude Include="src\StreetLight.h" />
     <ClInclude Include="src\TalanTowers.h" />
     <ClInclude Include="src\Tree.h" />

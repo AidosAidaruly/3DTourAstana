@@ -17,6 +17,7 @@ uniform float ambientStrength;
 uniform float diffuseStrength;
 uniform bool goldenPanels;
 uniform bool shaftGlass;
+uniform bool nurAlemFacade;
 uniform bool abuDhabiFacade;
 uniform int abuDhabiSecondaryFacadeMode;
 uniform bool abuDhabiGlassMaterial;
@@ -29,6 +30,7 @@ uniform bool akOrdaWaterJet;
 uniform vec2 akOrdaWaterCenter;
 uniform bool botanicalLake;
 uniform bool greenhouseGlass;
+uniform bool expoCanopyGlass;
 uniform float sceneTime;
 uniform int talanFacadeMode;
 
@@ -119,6 +121,69 @@ vec3 shadeAbuDhabiGlass(vec3 baseColor, vec3 normal, vec3 toLight, float lambert
     return color + vec3(0.80, 0.88, 0.94) * specular;
 }
 
+// Integrate a repeating narrow line over one pixel instead of widening it at
+// a distance. This preserves subpixel coverage without harsh grid aliasing.
+float facadeLineIntegral(float coordinate, float halfWidth)
+{
+    float fraction = fract(coordinate);
+    return floor(coordinate) * (2.0 * halfWidth)
+         + min(fraction, halfWidth)
+         + max(fraction - (1.0 - halfWidth), 0.0);
+}
+
+float filteredFacadeLine(float coordinate, float halfWidth)
+{
+    float footprint = max(fwidth(coordinate), 0.0001);
+    return clamp((facadeLineIntegral(coordinate + footprint * 0.5, halfWidth)
+                - facadeLineIntegral(coordinate - footprint * 0.5, halfWidth))
+                / footprint, 0.0, 1.0);
+}
+
+vec3 shadeNurAlemGlass(vec3 baseColor, vec3 normal, vec3 toLight, float lambert)
+{
+    const float pi = 3.14159265359;
+    vec2 grid = uv * vec2(96.0, 48.0);
+    vec2 panel = floor(grid);
+    // Small deterministic differences suggest individual glazing units.
+    float variation = fract(sin(dot(panel, vec2(12.9898, 78.233))) * 43758.5453);
+    vec3 tint = mix(baseColor, vec3(0.45, 0.65, 0.72), 0.35);
+    tint *= 0.975 + 0.05 * variation;
+    tint += vec3(-0.006, 0.008, 0.010) * (variation - 0.5);
+
+    // A restrained darker cap hints at the upper energy-system facade zone.
+    float upperZone = 1.0 - smoothstep(0.20, 0.30, uv.y);
+    tint *= mix(vec3(1.0), vec3(0.82, 0.87, 0.91), upperZone);
+
+    vec3 viewDirection = normalize(worldViewDirection);
+    float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
+    float fresnel = 0.04 + 0.96 * pow(1.0 - facing, 5.0);
+    vec3 reflection = reflect(-viewDirection, normal);
+    vec3 environment = mix(vec3(0.30, 0.38, 0.40), vec3(0.58, 0.76, 0.86),
+                           smoothstep(-0.25, 0.65, reflection.y));
+    float softCloud = sin(reflection.x * 5.0 + reflection.z * 3.0)
+                    * sin(reflection.z * 4.0 - reflection.x * 2.0);
+    environment += vec3(0.015, 0.017, 0.018) * softCloud
+                 * smoothstep(0.0, 0.55, reflection.y);
+    vec3 color = tint * (0.45 + 0.55 * (ambientStrength + diffuseStrength * lambert));
+    color = mix(color, environment, 0.22 + 0.38 * fresnel);
+    float sun = max(dot(normal, normalize(toLight + viewDirection)), 0.0);
+    color += vec3(0.80, 0.89, 0.94) *
+        (0.12 * pow(sun, mix(58.0, 72.0, variation)) + 0.015 * pow(sun, 18.0));
+
+    float poleFade = smoothstep(0.025, 0.16, sin(pi * uv.y));
+    vec2 fine = vec2(filteredFacadeLine(grid.x, 0.008),
+                     filteredFacadeLine(grid.y, 0.006));
+    vec2 mainGrid = uv * vec2(24.0, 8.0);
+    vec2 mainLines = vec2(filteredFacadeLine(mainGrid.x, 0.0057),
+                          filteredFacadeLine(mainGrid.y, 0.0045));
+    fine.x *= poleFade;
+    mainLines.x *= poleFade;
+    float mullion = max(max(mainLines.x, mainLines.y), max(fine.x, fine.y) * 0.60);
+    vec3 silver = vec3(0.30, 0.36, 0.39) * (0.55 + 0.45 * lambert);
+    silver = mix(silver, environment, 0.12 + 0.14 * fresnel);
+    return mix(color, silver, mullion * 0.86);
+}
+
 void main()
 {
     vec3 baseColor = objectColor;
@@ -155,6 +220,24 @@ void main()
     vec3 normal = normalize(worldNormal);
     vec3 toLight = normalize(-lightDirection);
     float lambert = max(dot(normal, toLight), 0.0);
+    if (expoCanopyGlass)
+    {
+        vec3 viewDirection = normalize(worldViewDirection);
+        normal = faceforward(normal, -viewDirection, normal);
+        float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
+        float fresnel = 0.04 + 0.96 * pow(1.0 - facing, 5.0);
+        vec3 reflection = reflect(-viewDirection, normal);
+        vec3 environment = mix(vec3(0.69, 0.74, 0.76), vec3(0.55, 0.70, 0.80),
+                               smoothstep(-0.12, 0.65, reflection.y));
+        vec3 glass = objectColor * (0.82 + 0.18 * max(dot(normal, toLight), 0.0));
+        glass = mix(glass, environment, 0.16 + 0.22 * fresnel);
+        float highlight = pow(max(dot(normal, normalize(toLight + viewDirection)), 0.0), 64.0);
+        // A single layer transmits 74-84% of the background. No emissive term,
+        // opaque backing or painted triangular shadow masks the plaza below.
+        fragColor = vec4(glass + vec3(0.80, 0.88, 0.94) * highlight * 0.06,
+                         0.16 + 0.10 * fresnel);
+        return;
+    }
     if (greenhouseGlass)
     {
         vec3 viewDirection = normalize(worldViewDirection);
@@ -268,6 +351,11 @@ void main()
         float highlight = pow(max(dot(normal, halfDirection), 0.0), 96.0);
         color = mix(color, reflectedSky, 0.22 + 0.28 * fresnel);
         color += vec3(0.70, 0.83, 0.91) * highlight * 0.35;
+    }
+
+    if (nurAlemFacade)
+    {
+        color = shadeNurAlemGlass(baseColor, normal, toLight, lambert);
     }
 
     if (abuDhabiGlassMaterial)

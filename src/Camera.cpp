@@ -5,6 +5,22 @@
 #include <algorithm>
 #include <cmath>
 
+void Camera::setViewpoint(Vec3 eye, Vec3 target)
+{
+    Vec3 direction = target - eye;
+    float horizontalDistance = std::sqrt(
+        direction.x * direction.x + direction.z * direction.z
+    );
+
+    position = eye;
+    yaw = std::atan2(direction.z, direction.x) * 180.0f / pi;
+    pitch = std::clamp(
+        std::atan2(direction.y, horizontalDistance) * 180.0f / pi,
+        -89.0f, 89.0f
+    );
+    resetMouse();
+}
+
 Vec3 Camera::forward() const
 {
     // Convert yaw and pitch from degrees to radians.

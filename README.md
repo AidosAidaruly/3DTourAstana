@@ -76,6 +76,8 @@ The executable is generated at `bin\x64\Debug\Astana3DTour.exe`. The project cop
 | **W / S** | Move forward / backward parallel to the ground. |
 | **A / D** | Strafe left / right. |
 | **Mouse** | Rotate the camera using the captured cursor. |
+| **6** | Teleport to the Botanical Garden's east entrance, facing its center. |
+| **7** | Teleport to EXPO, facing Nur Alem and its east entrance. |
 | **ESC** | Exit the application. |
 
 Movement speed is 5 world units per second. Mouse look limits the pitch to prevent the camera from flipping.
