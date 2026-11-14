@@ -217,6 +217,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     botanicalLakeLocation = shader.uniformLocation("botanicalLake");
     greenhouseGlassLocation = shader.uniformLocation("greenhouseGlass");
     expoCanopyGlassLocation = shader.uniformLocation("expoCanopyGlass");
+    megaAtriumGlassLocation = shader.uniformLocation("megaAtriumGlass");
     sceneTimeLocation = shader.uniformLocation("sceneTime");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
@@ -253,6 +254,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1i(botanicalLakeLocation, GL_FALSE);
     glUniform1i(greenhouseGlassLocation, GL_FALSE);
     glUniform1i(expoCanopyGlassLocation, GL_FALSE);
+    glUniform1i(megaAtriumGlassLocation, GL_FALSE);
     glUniform1f(sceneTimeLocation, time);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
@@ -266,9 +268,15 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     mesh.drawGround();
 
     expoDistrict.render(modelLocation, objectColorLocation, useObjectColorLocation,
-                        useGrassLocation, useTextureLocation, textureRepeatLocation, plazaTexture, shaftGlassLocation, nurAlemFacadeLocation);
-
+                        useGrassLocation, useTextureLocation, textureRepeatLocation, plazaTexture, shaftGlassLocation, nurAlemFacadeLocation, useAsphaltLocation);
     glUniform1i(useObjectColorLocation, GL_TRUE);
+    expoResidence.render(modelLocation, objectColorLocation, shaftGlassLocation,
+                         useGrassLocation, useTextureLocation, textureRepeatLocation, plazaTexture);
+    expoPremiumResidence.render(modelLocation, objectColorLocation, shaftGlassLocation,
+                                useGrassLocation, useTextureLocation, textureRepeatLocation, plazaTexture);
+    megaSilkWay.render(modelLocation, objectColorLocation, useTextureLocation,
+                       textureRepeatLocation, useAsphaltLocation, plazaTexture);
+    parkedVehicles.render(view,projection,lightDirection,ambientStrength,diffuseStrength);
     botanicalGarden.renderRoads(modelLocation, objectColorLocation,
                                useTextureLocation, useGrassLocation,
                                useAsphaltLocation, textureRepeatLocation, plazaTexture);
@@ -810,7 +818,8 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     {
         bench.render(mesh, modelLocation, objectColorLocation);
     }
-    // These glass volumes occupy distant, disjoint districts. Order the two
+
+    // These glass volumes occupy distant, disjoint districts. Order the three
     // batches back-to-front, with per-triangle sorting inside each volume.
     // Both follow all opaque scenery and restore blending/depth-write state.
     auto depth = [&](Vec3 p) { return view[2]*p.x + view[6]*p.y + view[10]*p.z; };
@@ -822,6 +831,12 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
         expoDistrict.renderCanopyGlass(modelLocation, objectColorLocation,
                                        expoCanopyGlassLocation, view);
     };
-    if (depth(ExpoDistrict::center) < depth(BotanicalGarden::center)) { canopy(); greenhouse(); }
-    else { greenhouse(); canopy(); }
+    struct GlassVolume { Vec3 center;int kind; };
+    std::array<GlassVolume,3> volumes{{{ExpoDistrict::center,0},{BotanicalGarden::center,1},{MegaSilkWaySite::center,2}}};
+    std::stable_sort(volumes.begin(),volumes.end(),[&](const GlassVolume& a,const GlassVolume& b){return depth(a.center)<depth(b.center);});
+    for(const auto& volume:volumes){
+        if(volume.kind==0)canopy();
+        else if(volume.kind==1)greenhouse();
+        else megaSilkWay.renderGlass(modelLocation,objectColorLocation,megaAtriumGlassLocation,view);
+    }
 }

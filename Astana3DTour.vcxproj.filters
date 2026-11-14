@@ -18,6 +18,10 @@
     <ClCompile Include="src\ExpoCanopy.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\NurAlem.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\ExpoPavilion.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\ExpoResidence.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\ExpoPremiumResidence.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\MegaSilkWay.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\ParkedVehicles.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\StreetLight.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\TalanTowers.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Tree.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -40,8 +44,14 @@
     <ClInclude Include="src\BotanicalGarden.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoDistrict.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoCanopy.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\ExpoRoadConnection.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\ExpoUrbanRoads.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\NurAlem.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoPavilion.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\ExpoResidence.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\ExpoPremiumResidence.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\MegaSilkWay.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\ParkedVehicles.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\StreetLight.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\TalanTowers.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Tree.h"><Filter>Header Files</Filter></ClInclude>

@@ -17,7 +17,9 @@ uniform float ambientStrength;
 uniform float diffuseStrength;
 uniform bool goldenPanels;
 uniform bool shaftGlass;
+uniform bool premiumResidenceBrick;
 uniform bool nurAlemFacade;
+uniform bool nurAlemPodiumGlass;
 uniform bool abuDhabiFacade;
 uniform int abuDhabiSecondaryFacadeMode;
 uniform bool abuDhabiGlassMaterial;
@@ -31,6 +33,7 @@ uniform vec2 akOrdaWaterCenter;
 uniform bool botanicalLake;
 uniform bool greenhouseGlass;
 uniform bool expoCanopyGlass;
+uniform bool megaAtriumGlass;
 uniform float sceneTime;
 uniform int talanFacadeMode;
 
@@ -193,11 +196,41 @@ void main()
         vec2 cell = floor(worldPosition.xz);
         float checker = mod(cell.x + cell.y, 2.0);
         baseColor = mix(vec3(0.48, 0.56, 0.42), vec3(0.51, 0.59, 0.45), checker);
+        // Colour the EXISTING ground, not a second raised rectangular patch.
+        // The soft elliptical meadow surrounds the R175 promenade; its east
+        // feather ends west of the Botanical Garden road/outer sidewalk X=-501.
+        vec2 expoOffset = worldPosition.xz - vec2(-765.0, -130.0);
+        float meadowRadius = length(expoOffset / vec2(1.0, 1.07));
+        float meadow = 1.0 - smoothstep(180.0, 250.0, meadowRadius);
+        float broad = 0.5 + 0.5 * sin(worldPosition.x * 0.045) *
+                                  sin(worldPosition.z * 0.037);
+        float detail = sin(worldPosition.x * 0.21 + worldPosition.z * 0.16);
+        vec3 grass = mix(vec3(0.43, 0.54, 0.35), vec3(0.47, 0.58, 0.39), broad);
+        grass *= 1.0 + 0.012 * detail;
+        baseColor = mix(baseColor, grass, meadow);
     }
 
     if (useTexture)
     {
         baseColor *= texture(plazaTexture, uv * textureRepeat).rgb;
+    }
+
+    if (premiumResidenceBrick)
+    {
+        // Scoped to the new residence's masonry batches; no texture asset or
+        // changes to the established landmark materials are required.
+        vec3 n = normalize(worldNormal);
+        float across = abs(n.x) > abs(n.z) ? localPosition.z : localPosition.x;
+        vec2 grid = vec2(across / 0.58, localPosition.y / 0.23);
+        grid.x += mod(floor(grid.y), 2.0) * 0.5;
+        vec2 edge = min(fract(grid), 1.0 - fract(grid));
+        vec2 aa = max(fwidth(grid), vec2(0.001));
+        vec2 joints = 1.0 - smoothstep(vec2(0.024) - aa, vec2(0.024) + aa, edge);
+        float fade = 1.0 - smoothstep(0.30, 1.2, max(aa.x, aa.y));
+        float variation = sin(dot(floor(grid), vec2(17.13, 5.71)));
+        baseColor *= 1.0 + 0.045 * variation * fade;
+        baseColor = mix(baseColor, baseColor * 1.18 + vec3(0.045, 0.039, 0.029),
+                        max(joints.x, joints.y) * fade * 0.65);
     }
 
     if (useGrass)
@@ -220,6 +253,35 @@ void main()
     vec3 normal = normalize(worldNormal);
     vec3 toLight = normalize(-lightDirection);
     float lambert = max(dot(normal, toLight), 0.0);
+    if (megaAtriumGlass)
+    {
+        // One two-sided roof skin; its real steel grid is rendered separately.
+        // A modest dielectric reflection leaves the ground and frame visible.
+        vec3 viewDirection = normalize(worldViewDirection);
+        normal = faceforward(normal, -viewDirection, normal);
+        float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
+        float fresnel = 0.04 + 0.96 * pow(1.0 - facing, 5.0);
+        vec3 reflection = reflect(-viewDirection, normal);
+        vec3 sky = mix(vec3(0.66, 0.72, 0.73), vec3(0.53, 0.71, 0.82),
+                       smoothstep(-0.16, 0.70, reflection.y));
+        float horizon = 1.0 - smoothstep(0.03, 0.38, abs(reflection.y));
+        sky += vec3(0.025, 0.028, 0.028) * horizon;
+        vec3 glass = objectColor * (0.86 + 0.14 * max(dot(normal, toLight), 0.0));
+        float pane = sin(floor(uv.y) * 1.37 + floor(uv.x) * 1.79);
+        glass *= 1.0 + 0.018 * pane;
+        glass = mix(glass, sky, 0.30 + 0.40 * fresnel);
+        float highlight = pow(max(dot(normal, normalize(toLight + viewDirection)), 0.0), 96.0);
+        // Fine glazing seals align with the real curved members. Derivative
+        // filtering keeps them restrained at elevated inspection distances.
+        vec2 edge = min(fract(uv), 1.0 - fract(uv));
+        vec2 aa = max(fwidth(uv) * 0.75, vec2(0.002));
+        vec2 seal = 1.0 - smoothstep(vec2(0.008), vec2(0.008) + aa, edge);
+        float joint = max(seal.x, seal.y);
+        glass = mix(glass, vec3(0.68, 0.75, 0.79), joint * 0.22);
+        fragColor = vec4(glass + vec3(0.82, 0.90, 0.95) * highlight * 0.14,
+                         0.30 + 0.18 * fresnel + joint * 0.07);
+        return;
+    }
     if (expoCanopyGlass)
     {
         vec3 viewDirection = normalize(worldViewDirection);
@@ -351,6 +413,35 @@ void main()
         float highlight = pow(max(dot(normal, halfDirection), 0.0), 96.0);
         color = mix(color, reflectedSky, 0.22 + 0.28 * fresnel);
         color += vec3(0.70, 0.83, 0.91) * highlight * 0.35;
+    }
+
+    if (nurAlemPodiumGlass)
+    {
+        // This local, opaque architectural-glass material is intentionally
+        // separate from the approved sphere and every other city's glazing.
+        vec3 viewDirection = normalize(worldViewDirection);
+        vec3 reflected = reflect(-viewDirection, normal);
+        float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 5.0);
+        float skyWeight = smoothstep(-0.12, 0.42, reflected.y);
+        vec3 environment = mix(vec3(0.28, 0.34, 0.35),
+                               vec3(0.66, 0.78, 0.85), skyWeight);
+        float cloud = sin(reflected.x * 5.0 + reflected.z * 3.0) *
+                      sin(reflected.y * 8.0 - reflected.z * 2.0);
+        environment += vec3(0.025) * cloud * skyWeight;
+        float angle = atan(localPosition.z, localPosition.x) / 6.2831853;
+        vec2 panel = vec2(angle * 96.0, localPosition.y / 3.2);
+        vec2 bay = floor(panel);
+        float tone = 0.91 + 0.16 * (0.5 + 0.5 * sin(bay.x * 1.73 + bay.y * 2.41));
+        vec3 depthColor = baseColor * tone * (0.78 + 0.22 * lambert);
+        color = mix(depthColor, environment, 0.38 + 0.30 * fresnel);
+        // Quiet panel edges preserve the hierarchy of the physical mullions.
+        vec2 edge = min(fract(panel), 1.0 - fract(panel));
+        vec2 aa = max(fwidth(panel), vec2(0.002));
+        float joint = 1.0 - smoothstep(0.0, 0.012 + aa.y, edge.y);
+        color *= 1.0 - 0.07 * joint;
+        vec3 halfDirection = normalize(toLight + viewDirection);
+        float highlight = pow(max(dot(normal, halfDirection), 0.0), 72.0);
+        color += vec3(0.13, 0.15, 0.16) * highlight;
     }
 
     if (nurAlemFacade)
@@ -498,7 +589,10 @@ void main()
 
     if (!useObjectColor)
     {
-        float fade = smoothstep(550.0, 850.0, length(worldPosition.xz));
+        // Background ground fades only with eye distance. Origin distance
+        // incorrectly washed out expanded districts even at walking range.
+        // Object materials, lighting and the projection remain unaffected.
+        float fade = smoothstep(750.0, 1000.0, length(worldViewDirection));
         color = mix(color, vec3(0.65, 0.80, 0.92), fade);
     }
 

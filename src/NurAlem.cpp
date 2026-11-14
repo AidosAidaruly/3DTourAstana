@@ -1,6 +1,7 @@
 #include "NurAlem.h"
 
 #include <cmath>
+#include <algorithm>
 #include <vector>
 
 namespace
@@ -55,98 +56,163 @@ namespace
         }
     }
 
-    void circularTier(Vertices& vertices, Indices& indices, float bottomRadius,
-                      float topRadius, float bottom, float top)
+    constexpr float entranceHalfAngle=11.25f*pi/180;
+    constexpr float lobbyFloor=3.3f,portalHead=8.45f,facadeTop=23.6f;
+    struct PodiumSection { float radius,slope; };
+    PodiumSection podiumSection(float y)
     {
-        constexpr int segments = 96;
-        float slope = (topRadius-bottomRadius)/(top-bottom);
-        GLuint first = static_cast<GLuint>(vertices.size()/8);
-        for (int segment=0;segment<=segments;++segment)
+        // Near-vertical lobby glass rolls into a recessed upper shoulder. The
+        // C1 profile retains the foundation and exact canopy/collar anchors.
+        float y0,y1,r0,r1,m0,m1;
+        if(y<=12.7f){y0=3.3f;y1=12.7f;r0=34;r1=29.3f;m0=-.14f;m1=-1.10f;}
+        else {y0=12.7f;y1=23.9f;r0=29.3f;r1=18.1f;m0=-1.10f;m1=-.45f;}
+        float h=y1-y0,t=std::clamp((y-y0)/h,0.0f,1.0f),t2=t*t,t3=t2*t;
+        float r=(2*t3-3*t2+1)*r0+(t3-2*t2+t)*h*m0+(-2*t3+3*t2)*r1+(t3-t2)*h*m1;
+        float slope=((6*t2-6*t)*r0+(3*t2-4*t+1)*h*m0+(-6*t2+6*t)*r1+(3*t2-2*t)*h*m1)/h;
+        return {r,slope};
+    }
+    Vec3 podiumPoint(float a,float y,float offset=0)
+    {
+        float r=podiumSection(y).radius+offset;return {r*std::cos(a),y,r*std::sin(a)};
+    }
+    Vec3 podiumNormal(float a,float y)
+    {
+        return normalize(Vec3{std::cos(a),-podiumSection(y).slope,std::sin(a)});
+    }
+    float stationAngle(int i) { return (i%96)*3.75f*pi/180; }
+    bool portalAngle(float a)
+    {
+        return std::abs(std::remainder(a,pi*.5f))<entranceHalfAngle-.0001f;
+    }
+    void quad(Vertices& vertices,Indices& indices,Vec3 a,Vec3 b,Vec3 c,Vec3 d,
+              Vec3 na,Vec3 nb,Vec3 nc,Vec3 nd)
+    {
+        GLuint i=vertex(vertices,a,na,0,0);vertex(vertices,b,nb,1,0);
+        vertex(vertices,c,nc,0,1);vertex(vertices,d,nd,1,1);
+        triangle(vertices,indices,i,i+1,i+2);triangle(vertices,indices,i+1,i+3,i+2);
+    }
+    void flatQuad(Vertices& vertices,Indices& indices,Vec3 a,Vec3 b,Vec3 c,Vec3 d,Vec3 n)
+    {
+        quad(vertices,indices,a,b,c,d,n,n,n,n);
+    }
+    void frustumSide(Vertices& vertices,Indices& indices,float r0,float r1,float y0,float y1,bool inward=false)
+    {
+        float slope=(r1-r0)/(y1-y0);
+        for(int i=0;i<96;++i)
         {
-            float u=static_cast<float>(segment)/segments, angle=u*2*pi;
-            Vec3 normal=normalize(Vec3{std::cos(angle),-slope,std::sin(angle)});
-            vertex(vertices,{bottomRadius*std::cos(angle),bottom,bottomRadius*std::sin(angle)},normal,u,0);
-            vertex(vertices,{topRadius*std::cos(angle),top,topRadius*std::sin(angle)},normal,u,1);
+            float a=stationAngle(i),b=stationAngle(i+1);
+            auto p=[](float r,float a,float y){return Vec3{r*std::cos(a),y,r*std::sin(a)};};
+            Vec3 n=normalize(Vec3{std::cos(a),-slope,std::sin(a)})*(inward?-1.0f:1.0f);
+            Vec3 m=normalize(Vec3{std::cos(b),-slope,std::sin(b)})*(inward?-1.0f:1.0f);
+            quad(vertices,indices,p(r0,a,y0),p(r0,b,y0),p(r1,a,y1),p(r1,b,y1),n,m,n,m);
         }
-        for (int segment=0;segment<segments;++segment)
+    }
+    void annulus(Vertices& vertices,Indices& indices,float outer,float inner,float y,bool up,bool entranceGaps=false)
+    {
+        for(int i=0;i<96;++i)
         {
-            GLuint a=first+segment*2;
-            triangle(vertices,indices,a,a+1,a+2);
-            triangle(vertices,indices,a+1,a+3,a+2);
+            if(entranceGaps&&std::abs(std::remainder((i+.5f)*pi/48,pi*.5f))<15*pi/180)continue;
+            float a=stationAngle(i),b=stationAngle(i+1);
+            auto p=[y](float r,float a){return Vec3{r*std::cos(a),y,r*std::sin(a)};};
+            flatQuad(vertices,indices,p(inner,a),p(inner,b),p(outer,a),p(outer,b),{0,up?1.0f:-1.0f,0});
         }
-        for (int cap=0;cap<2;++cap)
+    }
+    void metalBand(Vertices& vertices,Indices& indices,float r0,float r1,float inner0,float inner1,float y0,float y1)
+    {
+        frustumSide(vertices,indices,r0,r1,y0,y1);
+        frustumSide(vertices,indices,inner0,inner1,y0,y1,true);
+        annulus(vertices,indices,r0,inner0,y0,false);annulus(vertices,indices,r1,inner1,y1,true);
+    }
+    void podiumGlazing(Vertices& vertices,Indices& indices,float y0,float y1,bool entrances)
+    {
+        int rows=static_cast<int>(std::ceil((y1-y0)/1.4f));
+        for(int j=0;j<rows;++j)for(int i=0;i<96;++i)
         {
-            float y=cap==0?bottom:top, r=cap==0?bottomRadius:topRadius;
-            Vec3 normal{0,cap==0?-1.0f:1.0f,0};
-            GLuint middle=vertex(vertices,{0,y,0},normal,0.5f,0.5f);
-            first=static_cast<GLuint>(vertices.size()/8);
-            for (int segment=0;segment<=segments;++segment)
+            if(entrances&&portalAngle((i+.5f)*pi/48))continue;
+            float a=stationAngle(i),b=stationAngle(i+1),lo=y0+(y1-y0)*j/rows,hi=y0+(y1-y0)*(j+1)/rows;
+            quad(vertices,indices,podiumPoint(a,lo),podiumPoint(b,lo),podiumPoint(a,hi),podiumPoint(b,hi),
+                 podiumNormal(a,lo),podiumNormal(b,lo),podiumNormal(a,hi),podiumNormal(b,hi));
+        }
+    }
+    void podiumMullions(Vertices& vertices,Indices& indices)
+    {
+        for(int i=0;i<96;++i)
+        {
+            float a=stationAngle(i),lo=portalAngle(a)?portalHead:lobbyFloor;
+            float width=i%2?.028f:.055f;
+            constexpr int rows=16;
+            for(int j=0;j<rows;++j)
             {
-                float angle=segment*2*pi/segments;
-                vertex(vertices,{r*std::cos(angle),y,r*std::sin(angle)},normal,
-                       0.5f+0.5f*std::cos(angle),0.5f+0.5f*std::sin(angle));
+                float y0=lo+(facadeTop-lo)*j/rows,y1=lo+(facadeTop-lo)*(j+1)/rows;
+                float d0=width*.5f/podiumSection(y0).radius,d1=width*.5f/podiumSection(y1).radius;
+                Vec3 p[8]={podiumPoint(a-d0,y0,.075f),podiumPoint(a+d0,y0,.075f),
+                           podiumPoint(a-d1,y1,.075f),podiumPoint(a+d1,y1,.075f),
+                           podiumPoint(a-d0,y0,.01f),podiumPoint(a+d0,y0,.01f),
+                           podiumPoint(a-d1,y1,.01f),podiumPoint(a+d1,y1,.01f)};
+                Vec3 n0=podiumNormal(a,y0),n1=podiumNormal(a,y1),side{-std::sin(a),0,std::cos(a)};
+                quad(vertices,indices,p[0],p[1],p[2],p[3],n0,n0,n1,n1);
+                flatQuad(vertices,indices,p[4],p[0],p[6],p[2],side*-1);
+                flatQuad(vertices,indices,p[1],p[5],p[3],p[7],side);
+                if(j==0)flatQuad(vertices,indices,p[4],p[5],p[0],p[1],{0,-1,0});
+                if(j==rows-1)flatQuad(vertices,indices,p[2],p[3],p[6],p[7],{0,1,0});
             }
-            for (int segment=0;segment<segments;++segment)
-                triangle(vertices,indices,middle,first+segment,first+segment+1);
+        }
+    }
+    Vec3 entryPoint(float rotation,Vec3 p)
+    {
+        float a=rotation*pi/180;return {std::cos(a)*p.x+std::sin(a)*p.z,p.y,-std::sin(a)*p.x+std::cos(a)*p.z};
+    }
+    void portalReveals(Vertices& vertices,Indices& indices)
+    {
+        constexpr int rows=4; // same height samples as the lower curtain wall
+        for(float rotation:{0.0f,90.0f,180.0f,270.0f})for(float sign:{-1.0f,1.0f})for(int j=0;j<rows;++j)
+        {
+            // Return glazing follows the tapered opening edges exactly and
+            // leads to the original door plane, leaving the passage unobstructed.
+            float y0=lobbyFloor+(portalHead-lobbyFloor)*j/rows,y1=lobbyFloor+(portalHead-lobbyFloor)*(j+1)/rows;
+            float r0=podiumSection(y0).radius,r1=podiumSection(y1).radius;
+            Vec3 a{sign*r0*std::sin(entranceHalfAngle),y0,r0*std::cos(entranceHalfAngle)};
+            Vec3 b{sign*4.85f,y0,29.35f};
+            Vec3 c{sign*r1*std::sin(entranceHalfAngle),y1,r1*std::cos(entranceHalfAngle)};
+            Vec3 d{sign*4.85f,y1,29.35f};
+            Vec3 target{-sign,0,0},na=normalize(cross(b-a,c-a)),nd=normalize(cross(d-b,c-b));
+            if(dot(na,target)<0)na=na*-1;if(dot(nd,target)<0)nd=nd*-1;
+            Vec3 average=normalize(na+nd);
+            quad(vertices,indices,entryPoint(rotation,a),entryPoint(rotation,b),entryPoint(rotation,c),entryPoint(rotation,d),
+                 entryPoint(rotation,na),entryPoint(rotation,average),entryPoint(rotation,average),entryPoint(rotation,nd));
         }
     }
 
-    void glassSphere(Vertices& vertices, Indices& indices)
+    void glassSphere(Vertices& vertices,Indices& indices)
     {
-        constexpr int latitudeBands=48, longitudeSegments=96;
+        constexpr int latitudeBands=48,longitudeSegments=96;
         GLuint first=static_cast<GLuint>(vertices.size()/8);
-        for (int row=0;row<=latitudeBands;++row)
+        for(int row=0;row<=latitudeBands;++row)
         {
-            float v=static_cast<float>(row)/latitudeBands, latitude=v*pi;
-            for (int column=0;column<=longitudeSegments;++column)
+            float v=float(row)/latitudeBands,latitude=v*pi;
+            for(int column=0;column<=longitudeSegments;++column)
             {
-                float u=static_cast<float>(column)/longitudeSegments, longitude=u*2*pi;
-                Vec3 normal{std::sin(latitude)*std::cos(longitude),std::cos(latitude),
-                            std::sin(latitude)*std::sin(longitude)};
-                // Exact poles avoid tiny numerical rings and degenerate faces.
-                if (row==0) normal={0,1,0};
-                if (row==latitudeBands) normal={0,-1,0};
-                Vec3 p=normal*NurAlem::radius+Vec3{0,NurAlem::sphereCenterY,0};
-                vertex(vertices,p,normal,u,v);
+                float u=float(column)/longitudeSegments,longitude=u*2*pi;
+                Vec3 n{std::sin(latitude)*std::cos(longitude),std::cos(latitude),
+                       std::sin(latitude)*std::sin(longitude)};
+                if(row==0)n={0,1,0};
+                if(row==latitudeBands)n={0,-1,0};
+                vertex(vertices,n*NurAlem::radius+Vec3{0,NurAlem::sphereCenterY,0},n,u,v);
             }
         }
-        // Leave the upper three latitude bands open for the recessed crown oculus.
-        for (int row=3;row<latitudeBands;++row)
-            for (int column=0;column<longitudeSegments;++column)
-            {
-                GLuint a=first+row*(longitudeSegments+1)+column, b=a+longitudeSegments+1;
-                if (row>0) triangle(vertices,indices,a,b,a+1);
-                if (row<latitudeBands-1) triangle(vertices,indices,a+1,b,b+1);
-            }
-    }
-    // Open annular crown and recessed service well, not a disk over the sphere.
-    void crown(Vertices& vertices,Indices& indices,bool well) {
-        const float cutY=NurAlem::sphereCenterY+NurAlem::radius*std::cos(3*pi/48);
-        const float outer=NurAlem::radius*std::sin(3*pi/48),inner=6.7f;
-        auto p=[](float r,float a,float y){return Vec3{r*std::cos(a),y,r*std::sin(a)};};
-        auto quad=[&](Vec3 a,Vec3 b,Vec3 c,Vec3 d,Vec3 n) {
-            GLuint i=vertex(vertices,a,n,0,0);vertex(vertices,b,n,1,0);vertex(vertices,c,n,0,1);vertex(vertices,d,n,1,1);
-            triangle(vertices,indices,i,i+1,i+2);triangle(vertices,indices,i+1,i+3,i+2);
-        };
-        for(int i=0;i<96;++i) {
-            float a=2*pi*i/96,b=2*pi*(i+1)/96;
-            Vec3 n{std::cos((a+b)*.5f),0,std::sin((a+b)*.5f)};
-            if(!well) {
-                quad(p(inner,a,100.3f),p(inner,b,100.3f),p(outer,a,100.3f),p(outer,b,100.3f),{0,1,0});
-                quad(p(outer,a,cutY),p(outer,b,cutY),p(outer,a,100.3f),p(outer,b,100.3f),n);
-            } else {
-                quad(p(inner,a,97.5f),p(inner,b,97.5f),p(inner,a,100.3f),p(inner,b,100.3f),n*-1);
-                GLuint k=vertex(vertices,{0,97.5f,0},{0,1,0},0,0);
-                vertex(vertices,p(inner,a,97.5f),{0,1,0},0,0);vertex(vertices,p(inner,b,97.5f),{0,1,0},0,0);
-                triangle(vertices,indices,k,k+1,k+2);
-            }
+        // Close both poles with spherical triangle fans. There are no planar
+        // lids, omitted latitude bands or duplicated zero-area pole faces.
+        for(int row=0;row<latitudeBands;++row)for(int column=0;column<longitudeSegments;++column)
+        {
+            GLuint a=first+row*(longitudeSegments+1)+column,b=a+longitudeSegments+1;
+            if(row>0)triangle(vertices,indices,a,b,a+1);
+            if(row<latitudeBands-1)triangle(vertices,indices,a+1,b,b+1);
         }
     }
 
-    // The glazed sphere is untouched. A shallow stand-off holds a separate
-    // exterior diagrid clear of its faceted surface and existing panel shader.
+    // Continuous exterior diagrid, clear of the fully closed glass surface.
     constexpr float frameRadius=NurAlem::radius+.16f;
-    constexpr float frameTop=3*pi/48; // exact existing crown cut, not the pole
+    constexpr float frameTop=3*pi/48; // structural summit tie, over closed glazing
     const float frameBottom=std::acos((NurAlem::seatHeight-.04f-NurAlem::sphereCenterY)/frameRadius);
     constexpr int diagonalCurvesPerFamily=12, diagonalSpans=96, tubeSides=6;
 
@@ -218,8 +284,8 @@ namespace
 
     void latticeHoops(Vertices& vertices,Indices& indices)
     {
-        // Three intermediate hoops pass through existing diagonal crossings.
-        // Two lighter terminal hoops collect all rib ends at crown and collar.
+        // Three intermediate ties and two terminal ties join the continuous
+        // diagonals. The upper tie is framing, not an opening or a glass cap.
         float nodeStep=pi/diagonalCurvesPerFamily;
         const float levels[]={frameTop,2*std::atan(std::exp(-2*nodeStep)),pi*.5f,
                               2*std::atan(std::exp(2*nodeStep)),frameBottom};
@@ -250,71 +316,80 @@ NurAlem::NurAlem(Vec3 site) : model(modelMatrix(site,0,{1,1,1}))
     { range.count=static_cast<GLsizei>(indices.size()-range.first); };
 
     begin(stone);
-    crown(vertices,indices,false);
-    circularTier(vertices,indices,podiumRadius,podiumRadius,0.30f,1.50f);
-    circularTier(vertices,indices,32,32,1.50f,3.0f);
-    circularTier(vertices,indices,30,30,3.0f,3.30f);
-    circularTier(vertices,indices,29.3f,29.3f,12.20f,12.70f);
-    // The bottom 4 m of the sphere is seated inside this collar. At its top,
-    // the sphere's cross-section is 17.44 m, leaving a continuous 3.56 m rim.
-    circularTier(vertices,indices,21,21,23.30f,seatHeight);
-    // Occupied floors have horizontal stone spandrels and slim vertical piers.
-    circularTier(vertices,indices,29.15f,29.15f,7.35f,7.65f);
-    circularTier(vertices,indices,24.15f,24.15f,17.0f,17.30f);
-    circularTier(vertices,indices,24.35f,24.35f,20.90f,21.35f);
-    for(int bay=0;bay<48;++bay)
+    // A single bevelled plinth supports the taper. Its top has no broad disks
+    // intersecting the glazed stories or the recessed entrance landings.
+    frustumSide(vertices,indices,podiumRadius,34,.30f,lobbyFloor);
+    annulus(vertices,indices,34,33.8f,lobbyFloor,true,true);
+    for(float entrance:{0.0f,90.0f,180.0f,270.0f})
     {
-        float angle=bay*7.5f;
-        if(std::abs(std::remainder(angle,90.0f))<10.5f) continue;
-        architecturalBox(vertices,indices,angle,{0,7.75f,29.05f},{.10f,8.9f,.14f});
-    }
-    for(int bay=0;bay<40;++bay)
-        architecturalBox(vertices,indices,bay*9.0f,{0,16.8f,24.05f},{.10f,8.2f,.14f});
-    for(float entrance : {0.0f,90.0f,180.0f,270.0f})
-    {
-        // Four recessed lobby portals, flat glazing in front of the curved wall.
-        // East (rotation 90) is the main approach from the Botanical Garden.
-        architecturalBox(vertices,indices,entrance,{0,1.80f,31.45f},{12,3,5.1f});
-        // Nineteen treads plus the landing give twenty shallow 0.15 m rises.
+        architecturalBox(vertices,indices,entrance,{0,1.80f,31.45f},{14,3,5.1f});
+        // Keep the existing nineteen treads and their plaza connection exactly.
         for(int step=0;step<19;++step)
         {
             float top=3.30f-.15f*(step+1);
             architecturalBox(vertices,indices,entrance,{0,(.30f+top)*.5f,34.15f+.30f*step},
                              {10.8f,top-.30f,.30f});
         }
-        architecturalBox(vertices,indices,entrance,{0,7.975f,31.45f},{13.2f,.35f,4.1f});
-        for(float x : {-5.9f,5.9f})
-            architecturalBox(vertices,indices,entrance,{x,5.475f,32.6f},{.22f,4.35f,.22f});
-        for(float x : {-4.8f,-2.4f,0.0f,2.4f,4.8f})
-            architecturalBox(vertices,indices,entrance,{x,5.4f,29.41f},{.12f,4.2f,.16f});
-        for(float y : {3.36f,6.85f,7.50f})
-            architecturalBox(vertices,indices,entrance,{0,y,29.41f},{9.72f,.12f,.16f});
-        for(float door : {-3.6f,-1.2f,1.2f,3.6f})
-            architecturalBox(vertices,indices,entrance,{door,5.075f,29.41f},{.075f,3.55f,.16f});
     }
     finish(stone);
 
     begin(baseGlass);
-    circularTier(vertices,indices,29,29,3.30f,12.20f);
-    circularTier(vertices,indices,24,24,12.70f,20.90f);
-    circularTier(vertices,indices,24,21,21.35f,23.30f);
+    podiumGlazing(vertices,indices,lobbyFloor,8.45f,true);
+    podiumGlazing(vertices,indices,8.65f,12.2f,false);
+    podiumGlazing(vertices,indices,12.7f,18.15f,false);
+    podiumGlazing(vertices,indices,18.35f,facadeTop,false);
+    frustumSide(vertices,indices,18.24f,18.13f,23.78f,24.08f);
+    portalReveals(vertices,indices);
     finish(baseGlass);
 
     begin(entranceGlass);
-    for(float entrance : {0.0f,90.0f,180.0f,270.0f})
-        architecturalBox(vertices,indices,entrance,{0,5.4f,29.32f},{9.6f,4.2f,.06f});
+    for(float entrance:{0.0f,90.0f,180.0f,270.0f})
+        architecturalBox(vertices,indices,entrance,{0,5.875f,29.32f},{9.6f,5.15f,.06f});
     finish(entranceGlass);
 
     begin(entranceMetal);
-    crown(vertices,indices,true);
-    for(float entrance : {0.0f,90.0f,180.0f,270.0f})
+    for(float entrance:{0.0f,90.0f,180.0f,270.0f})
     {
-        architecturalBox(vertices,indices,entrance,{0,7.725f,31.45f},{13.2f,.15f,4.1f});
-        for(float door : {-3.6f,-1.2f,1.2f,3.6f})
-            for(float side : {-1.0f,1.0f})
-                architecturalBox(vertices,indices,entrance,{door+side*.15f,4.7f,29.56f},{.055f,.70f,.07f});
+        architecturalBox(vertices,indices,entrance,{0,8.065f,31.8f},{14,.13f,5.6f});
+        for(float door:{-3.6f,-1.2f,1.2f,3.6f})for(float side:{-1.0f,1.0f})
+            architecturalBox(vertices,indices,entrance,{door+side*.15f,4.7f,29.46f},{.055f,.70f,.07f});
     }
     finish(entranceMetal);
+
+    begin(podiumMetal);
+    podiumMullions(vertices,indices);
+    for(const auto& band:std::vector<Vec3>{{8.45f,8.65f,.12f},{18.15f,18.35f,.12f}})
+    {
+        float r0=podiumSection(band.x).radius,r1=podiumSection(band.y).radius;
+        metalBand(vertices,indices,r0+band.z,r1+band.z,r0-.08f,r1-.08f,band.x,band.y);
+    }
+    // Exact legacy 96-sided seat: canopy vertices at R=29.3, Y=12.7 are
+    // untouched. This shallow annular fascia replaces the old wide solid tier.
+    metalBand(vertices,indices,podiumSection(12.2f).radius+.10f,29.3f,
+              podiumSection(12.2f).radius-.15f,29.15f,12.2f,12.7f);
+    // Slim paired collar lips with a recessed glazed shadow joint between
+    // them soften the transition to the sphere, retaining its lattice seat.
+    metalBand(vertices,indices,podiumSection(facadeTop).radius+.08f,18.32f,
+              podiumSection(facadeTop).radius-.20f,18.04f,facadeTop,23.78f);
+    metalBand(vertices,indices,18.22f,18.1f,17.12f,17.25f,24.08f,seatHeight);
+    // Local canopy shoe: the steel's underside lands outside the inclined
+    // glazing. The approved canopy glass still meets R29.3 at Y12.7.
+    metalBand(vertices,indices,30.22f,30.22f,29.25f,29.25f,12.40f,12.51f);
+    for(float entrance:{0.0f,90.0f,180.0f,270.0f})
+    {
+        architecturalBox(vertices,indices,entrance,{0,8.27f,31.8f},{14.2f,.28f,5.8f});
+        for(float x:{-6.15f,6.15f})
+            architecturalBox(vertices,indices,entrance,{x,5.7f,33.0f},{.16f,4.8f,.16f});
+        for(float x:{-4.9f,4.9f})
+            architecturalBox(vertices,indices,entrance,{x,5.875f,29.43f},{.14f,5.15f,.16f});
+        for(float x:{-4.8f,-2.4f,0.0f,2.4f,4.8f})
+            architecturalBox(vertices,indices,entrance,{x,5.4f,29.41f},{.10f,4.2f,.14f});
+        for(float y:{3.36f,6.85f,7.50f,8.38f})
+            architecturalBox(vertices,indices,entrance,{0,y,29.41f},{10.0f,.10f,.14f});
+        for(float door:{-3.6f,-1.2f,1.2f,3.6f})
+            architecturalBox(vertices,indices,entrance,{door,5.075f,29.41f},{.075f,3.55f,.14f});
+    }
+    finish(podiumMetal);
 
     begin(sphere);
     glassSphere(vertices,indices);
@@ -356,15 +431,25 @@ void NurAlem::render(GLint modelLocation, GLint colorLocation, GLint glassLocati
 {
     glUniformMatrix4fv(modelLocation,1,GL_FALSE,model.data());
     glBindVertexArray(vao);
+    // Keep the podium material independent of sphere/other landmark glazing.
+    GLint program=0;glGetIntegerv(GL_CURRENT_PROGRAM,&program);
+    if(podiumProgram!=static_cast<GLuint>(program))
+    {
+        podiumProgram=static_cast<GLuint>(program);
+        podiumGlassLocation=glGetUniformLocation(podiumProgram,"nurAlemPodiumGlass");
+    }
+    glUniform1i(podiumGlassLocation,GL_FALSE);
     glUniform1i(facadeLocation,GL_FALSE);
     glUniform1i(glassLocation,GL_FALSE);
     glUniform3f(colorLocation,0.76f,0.79f,0.80f); draw(stone);
     glUniform3f(colorLocation,0.23f,0.28f,0.30f); draw(entranceMetal);
-    // Lobby and upper floors remain opaque glass; the sphere facade stays isolated.
-    glUniform1i(glassLocation,GL_TRUE);
-    glUniform3f(colorLocation,0.31f,0.44f,0.50f); draw(baseGlass);
-    glUniform3f(colorLocation,0.21f,0.34f,0.40f); draw(entranceGlass);
-    glUniform1i(glassLocation,GL_FALSE);
+    glUniform3f(colorLocation,.64f,.71f,.75f); draw(podiumMetal);
+    // Opaque glazing avoids a new blend pass; depth and restrained reflection
+    // are supplied by a dedicated material, never applied to the sphere.
+    glUniform1i(podiumGlassLocation,GL_TRUE);
+    glUniform3f(colorLocation,.24f,.37f,.43f); draw(baseGlass);
+    glUniform3f(colorLocation,.20f,.32f,.38f); draw(entranceGlass);
+    glUniform1i(podiumGlassLocation,GL_FALSE);
     glUniform1i(facadeLocation,GL_TRUE);
     glUniform3f(colorLocation,0.39f,0.57f,0.66f); draw(sphere);
     glUniform1i(facadeLocation,GL_FALSE);

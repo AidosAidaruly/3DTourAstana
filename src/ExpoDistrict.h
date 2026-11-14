@@ -15,6 +15,7 @@ public:
     static constexpr float halfWidth = 180, halfDepth = 200;
     static constexpr float nurAlemRadius = 40;
     static constexpr float centralPadRadius = 48, centralPlazaRadius = 62;
+    static constexpr float roadInnerRadius = 196, roadOuterRadius = 210;
     static constexpr float pavilionInnerRadius = 92, pavilionOuterRadius = 132;
 
     ExpoDistrict();
@@ -24,7 +25,7 @@ public:
 
     void render(GLint modelLocation, GLint colorLocation, GLint useObjectColorLocation,
                 GLint grassLocation, GLint textureLocation, GLint repeatLocation,
-                GLuint stoneTexture, GLint glassLocation, GLint facadeLocation) const;
+                GLuint stoneTexture, GLint glassLocation, GLint facadeLocation, GLint asphaltLocation) const;
     void renderCanopyGlass(GLint modelLocation, GLint colorLocation,
                            GLint glassLocation, const Mat4& view) const;
 
@@ -38,9 +39,16 @@ private:
     GLuint vao = 0, vbo = 0, ebo = 0, canopyGlassEbo = 0;
     struct GlassTriangle { std::array<GLuint,3> indices; Vec3 worldCenter; };
     std::vector<GlassTriangle> canopyTriangles;
-    // Reused sorting buffers avoid reallocating triangle arrays each frame.
-    mutable std::vector<std::size_t> canopyOrder;
+    // Static triangles and fixed-size scratch arrays; the EBO stays valid until
+    // the camera's depth direction changes and produces a different ordering.
+    struct GlassSortKey {double depth=0;std::size_t triangle=0;};
+    mutable std::vector<GlassSortKey> canopyOrder;
     mutable std::vector<GLuint> canopySortedIndices;
-    Range lawn, paving, borders, podRoof, podGlass, podTrim, podSkylights;
+    mutable Vec3 canopySortedDirection{};
+    mutable bool canopyOrderValid=false;
+    Range paving, podRoof, podGlass, podTrim, podSkylights;
     Range canopyPrimary, canopySecondary, canopyGlass;
+    Range roadAsphalt, roadSidewalks, roadEdging, roadPaint;
+    Range landscapePaving, landscapeEdging, landscapeBeds;
+    std::array<Range,11> parkScenery;
 };

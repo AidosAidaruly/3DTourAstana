@@ -6,6 +6,7 @@
 #endif
 #include <Windows.h>
 #include "BotanicalGarden.h"
+#include "ExpoRoadConnection.h"
 #include "Tree.h"
 #include "Bench.h"
 #include "StreetLight.h"
@@ -1477,7 +1478,10 @@ BotanicalGarden::BotanicalGarden()
     roadBox(-501,-374,-271,-266,0,0.060f);
     roadBox(-366,-239,-271,-266,0,0.060f);
     roadBox(-374,-366,-271,-269,0,0.060f);
-    roadBox(-501,-496,-266,18,0,0.060f);
+    // Local west-side T-junction: the shared connector supplies the rounded
+    // sidewalk returns inside this opening. The remaining ring is unchanged.
+    roadBox(-501,-496,-266,ExpoRoadConnection::southEnd,0,0.060f);
+    roadBox(-501,-496,ExpoRoadConnection::northEnd,18,0,0.060f);
     roadBox(-244,-239,-266,18,0,0.060f);
     finishRange(perimeterSidewalks);
 
@@ -1505,7 +1509,8 @@ BotanicalGarden::BotanicalGarden()
         roadBox(-496.25f,-374,z,z+0.25f,0.04f,0.16f);
         roadBox(-366,-243.75f,z,z+0.25f,0.04f,0.16f);
     }
-    roadBox(-496.25f,-496,-266,18,0.04f,0.16f);
+    roadBox(-496.25f,-496,-266,ExpoRoadConnection::southEnd,0.04f,0.16f);
+    roadBox(-496.25f,-496,ExpoRoadConnection::northEnd,18,0.04f,0.16f);
     roadBox(-244,-243.75f,-266,18,0.04f,0.16f);
     finishRange(perimeterCurbs);
 
@@ -1524,7 +1529,8 @@ BotanicalGarden::BotanicalGarden()
     }
     for (float z=-250; z+3<=2; z+=6)
     {
-        roadPaint(-490.075f,-489.925f,z,z+3);
+        if(z+3<=ExpoRoadConnection::southEnd-2||z>=ExpoRoadConnection::northEnd+2)
+            roadPaint(-490.075f,-489.925f,z,z+3);
         roadPaint(-250.075f,-249.925f,z,z+3);
     }
     for (int stripe=0; stripe<8; ++stripe)

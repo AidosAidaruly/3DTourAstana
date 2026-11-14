@@ -62,6 +62,10 @@
     <ClCompile Include="src\ExpoCanopy.cpp" />
     <ClCompile Include="src\NurAlem.cpp" />
     <ClCompile Include="src\ExpoPavilion.cpp" />
+    <ClCompile Include="src\ExpoResidence.cpp" />
+    <ClCompile Include="src\ExpoPremiumResidence.cpp" />
+    <ClCompile Include="src\MegaSilkWay.cpp" />
+    <ClCompile Include="src\ParkedVehicles.cpp" />
     <ClCompile Include="src\StreetLight.cpp" />
     <ClCompile Include="src\TalanTowers.cpp" />
     <ClCompile Include="src\Tree.cpp" />
@@ -84,8 +88,14 @@
     <ClInclude Include="src\BotanicalGarden.h" />
     <ClInclude Include="src\ExpoDistrict.h" />
     <ClInclude Include="src\ExpoCanopy.h" />
+    <ClInclude Include="src\ExpoRoadConnection.h" />
+    <ClInclude Include="src\ExpoUrbanRoads.h" />
     <ClInclude Include="src\NurAlem.h" />
     <ClInclude Include="src\ExpoPavilion.h" />
+    <ClInclude Include="src\ExpoResidence.h" />
+    <ClInclude Include="src\ExpoPremiumResidence.h" />
+    <ClInclude Include="src\MegaSilkWay.h" />
+    <ClInclude Include="src\ParkedVehicles.h" />
     <ClInclude Include="src\StreetLight.h" />
     <ClInclude Include="src\TalanTowers.h" />
     <ClInclude Include="src\Tree.h" />

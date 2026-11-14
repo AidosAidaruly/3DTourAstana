@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdio>
 #include <exception>
 #include <filesystem>
 #include <iostream>
@@ -60,16 +61,29 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    // Report the renderer of this actual context once, without selecting or
+    // changing the GPU. Useful on laptops with integrated/discrete graphics.
+    auto glString = [](GLenum name) {
+        const auto* value = glGetString(name);
+        return value ? reinterpret_cast<const char*>(value) : "unavailable";
+    };
+    std::cout << "OpenGL vendor: " << glString(GL_VENDOR)
+              << "\nOpenGL renderer: " << glString(GL_RENDERER)
+              << "\nOpenGL version: " << glString(GL_VERSION) << std::endl;
+
     Camera camera;
     constexpr Vec3 botanicalGarden = BotanicalGarden::center;
     constexpr Vec3 expo = ExpoDistrict::center;
-    std::array<LandmarkViewpoint, 2> viewpoints{{
+    std::array<LandmarkViewpoint, 3> viewpoints{{
         // 6: Just inside the east entrance, looking along the garden axis.
         {GLFW_KEY_6, {botanicalGarden.x + 101.0f, 3.0f, botanicalGarden.z},
          botanicalGarden},
         // 7: East processional route, facing Nur Alem and its main public lobby.
         {GLFW_KEY_7, {expo.x + 130.0f, 3.0f, expo.z},
-         {expo.x, 42.0f, expo.z}}
+         {expo.x, 42.0f, expo.z}},
+        // 8: Clear prepared ground, 35 m in front of MEGA's +Z short end.
+        {GLFW_KEY_8, {-950.0f, 3.0f, -440.0f},
+         {-950.0f, 3.0f, -475.0f}}
     }};
 
     glfwSetWindowUserPointer(window, &camera);
@@ -109,6 +123,8 @@ int main(int argc, char** argv)
         // Scene resources are destroyed before the window and OpenGL context.
         Scene scene(shaders);
         double previous = glfwGetTime();
+        double statisticsStart = previous;
+        unsigned renderedFrames = 0;
 
         while (!glfwWindowShouldClose(window))
         {
@@ -143,6 +159,9 @@ int main(int argc, char** argv)
             if (width == 0 || height == 0)
             {
                 glfwWaitEventsTimeout(0.05);
+                // A minimized window has no rendered frames to measure.
+                statisticsStart = glfwGetTime();
+                renderedFrames = 0;
                 continue;
             }
 
@@ -157,6 +176,23 @@ int main(int argc, char** argv)
 
             scene.render(view, projection, static_cast<float>(now));
             glfwSwapBuffers(window);
+
+            // Wall-clock presentation rate, including input, CPU submission,
+            // GPU/driver waits and the existing swap interval. No GPU stalls
+            // or per-frame logging are introduced by this counter.
+            ++renderedFrames;
+            double statisticsEnd = glfwGetTime();
+            double elapsed = statisticsEnd - statisticsStart;
+            if (elapsed >= 1.0)
+            {
+                char title[160];
+                std::snprintf(title, sizeof(title),
+                    "Astana 3D Tour | %.1f FPS | %.2f ms avg | WASD + mouse | ESC to close",
+                    renderedFrames / elapsed, elapsed * 1000.0 / renderedFrames);
+                glfwSetWindowTitle(window, title);
+                statisticsStart = statisticsEnd;
+                renderedFrames = 0;
+            }
         }
     }
     catch (const std::exception& error)

@@ -175,7 +175,11 @@ ExpoCanopyAssembly buildExpoCanopyAssembly()
             Vec3 normal=normalize(Vec3{tangent.z,0,-tangent.x});
             // Clearance is perpendicular to the curved boundary, rather
             // than radial: branch flanks can be steeply angled to a ray.
-            return .14f/std::abs(dot(normal,d));
+            // Only the podium-side bearing is set back: the inclined facade
+            // projects beyond R29.3 below Y12.7. Keep steel outside that
+            // glass and seat it on the podium shoe, not inside the facade.
+            float clearance=edge==0?.80f:.14f;
+            return clearance/std::abs(dot(normal,d));
         };
         return std::clamp(radial,margin(0),1-margin(1));
     };
@@ -188,6 +192,9 @@ ExpoCanopyAssembly buildExpoCanopyAssembly()
         // both remain below the panes, avoiding coincident steel/glass faces.
         float offset=depth*.5f+(primary?.018f:.042f);
         Vec3 p=ExpoCanopySurface::point(a,u)-n*offset,q=ExpoCanopySurface::point(b,v)-n*offset;
+        // A bearing inset can consume the first short sample at narrow
+        // valleys. Do not emit a collapsed beam or normalize a zero vector.
+        if(dot(q-p,q-p)<.000001f)return;
         beam(primary?result.primary:result.secondary,p,q,n,width,depth);
         if(primary)++result.primaryMembers;else ++result.secondaryMembers;
     };
@@ -250,6 +257,9 @@ ExpoCanopyAssembly buildExpoCanopyAssembly()
         bool longitudinal=std::abs(a.angle-b.angle)<.00001f
             &&std::abs(a.angle/(pi/6)-std::round(a.angle/(pi/6)))<.00001f;
         bool primary=longitudinal||(a.row==3&&b.row==3);
+        // Retain twelve primary bearings at the podium. Omit only the first
+        // row's diagonals so the lobby is not screened by a dense steel fan.
+        if((a.row==0||b.row==0)&&!primary)continue;
         // Sampling resolution follows curvature, not the number of bays.
         // The broad bays still have smooth rails without changing the shell.
         unsigned spans=static_cast<unsigned>(std::ceil(std::max(
