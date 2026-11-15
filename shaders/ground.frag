@@ -36,6 +36,7 @@ uniform bool expoCanopyGlass;
 uniform bool megaAtriumGlass;
 uniform float sceneTime;
 uniform int esilSurface; // 0 city, 1 bank, 2 water, 3 promenade, 4 coping, 5 rail, 6 fine bridge steel, 7 ivory scales, 8 bridge stone
+uniform int astanaArenaFacade; // 0 unchanged, 1 silver, 2 glazing, 3 cassettes, 4 collar, 5 entry stone, 6 pitch, 7 bowl
 uniform int talanFacadeMode;
 
 vec3 shadeGoldenPanels(vec3 normal, vec3 toLight, float lambert)
@@ -282,8 +283,173 @@ vec3 shadeEsilSurface()
     return color;
 }
 
+float arenaSegmentDistance(vec2 p,vec2 a,vec2 b)
+{
+    vec2 direction=b-a;
+    float t=clamp(dot(p-a,direction)/dot(direction,direction),0.0,1.0);
+    return length(p-a-direction*t);
+}
+
+float arenaRectangleBorder(vec2 p,vec2 halfSize)
+{
+    vec2 q=abs(p)-halfSize;
+    return abs(length(max(q,vec2(0.0)))+min(max(q.x,q.y),0.0));
+}
+
+float arenaPitchLines(vec2 p)
+{
+    // IFAB proportions, 120 mm lines lying inside the 105 x 68 m boundary.
+    float d=arenaRectangleBorder(p,vec2(33.94,52.44));
+    d=min(d,arenaSegmentDistance(p,vec2(-33.94,0.0),vec2(33.94,0.0)));
+    d=min(d,abs(length(p)-9.09)); // 9.15 m outside radius
+    d=min(d,length(p)-0.06); // 120 mm-radius centre mark
+    vec2 q=vec2(p.x,abs(p.y));
+    d=min(d,arenaRectangleBorder(q-vec2(0.0,44.25),vec2(20.10,8.19)));
+    d=min(d,arenaRectangleBorder(q-vec2(0.0,49.75),vec2(9.10,2.69)));
+    d=min(d,length(q-vec2(0.0,41.50))-0.05); // 11 m penalty marks
+    if (q.y<36.0) d=min(d,abs(length(q-vec2(0.0,41.50))-9.09));
+    vec2 corner=vec2(abs(p.x),abs(p.y))-vec2(34.0,52.5);
+    d=min(d,abs(length(corner)-0.94)); // 1 m outside-radius corner arcs
+    float aa=max(length(fwidth(p))*0.40,0.0015);
+    float inside=1.0-smoothstep(0.0,aa,max(abs(p.x)-34.0,abs(p.y)-52.5));
+    return (1.0-smoothstep(0.06-aa,0.06+aa,d))*inside;
+}
+
 void main()
 {
+    if (astanaArenaFacade != 0)
+    {
+        vec3 n = normalize(worldNormal);
+        vec3 light = normalize(-lightDirection);
+        vec3 eye = normalize(worldViewDirection);
+        float diffuse = max(dot(n,light),0.0);
+        vec3 halfDirection = normalize(light+eye);
+        // Broad sky fill and a restrained highlight suit satin aluminum,
+        // without turning the enclosing stadium shell into bright white glass.
+        vec3 silver=vec3(0.73,0.76,0.78)*(0.78+0.22*diffuse);
+        float highlight=pow(max(dot(n,halfDirection),0.0),42.0)*0.065;
+        vec3 color;
+        if (astanaArenaFacade == 6)
+        {
+            vec2 p=localPosition.xz;
+            float stripe=mod(floor((p.y+52.5)/8.75),2.0);
+            color=mix(vec3(0.17,0.39,0.20),vec3(0.20,0.43,0.23),stripe);
+            if (abs(p.x)>34.0||abs(p.y)>52.5) color=vec3(0.17,0.36,0.20);
+            color*=1.0+0.008*sin(p.x*1.7+p.y*.8)*sin(p.y*1.3);
+            color*=0.80+0.20*diffuse;
+            color=mix(color,vec3(0.93,0.94,0.90)*(0.86+0.14*diffuse),arenaPitchLines(p));
+        }
+        else if (astanaArenaFacade == 7)
+        {
+            // Bare two-tier precast foundations, not finished spectator seats.
+            color=objectColor*(0.76+0.24*diffuse);
+            if (n.y>0.97) color=vec3(0.64,0.65,0.62)*(0.78+0.22*diffuse);
+            else if (n.y>0.55)
+            {
+                float course=localPosition.y/.85;
+                float edge=min(fract(course),1.0-fract(course));
+                float aa=max(fwidth(course)*0.60,0.0006);
+                float joint=1.0-smoothstep(0.009-aa,0.009+aa,edge);
+                color*=1.0-0.15*joint;
+                color*=localPosition.y>10.2?1.05:0.97;
+            }
+            else color=vec3(0.44,0.49,0.53)*(0.76+0.24*diffuse);
+        }
+        else if (astanaArenaFacade == 8)
+        {
+            // Arena plaza only: metre-based entrance coordinates stay aligned
+            // with the approved landing. No individual tile meshes or uploads.
+            color=objectColor*(0.72+0.28*diffuse);
+            if (abs(n.y)>0.6)
+            {
+                vec2 grid=uv/vec2(2.4,1.2);
+                grid.x+=mod(floor(grid.y),2.0)*0.5;
+                vec2 edge=min(fract(grid),1.0-fract(grid));
+                vec2 aa=max(fwidth(grid)*0.6,vec2(0.0005));
+                vec2 joints=1.0-smoothstep(vec2(0.004)-aa,vec2(0.004)+aa,edge);
+                float variation=sin(dot(floor(grid),vec2(1.73,2.17)));
+                color*=1.0+0.018*variation;
+                color=mix(color,color*0.76,max(joints.x,joints.y)*0.65);
+                // Flush tonal borders frame a 24 m crowd route and a broad
+                // forecourt. Restrained accents, without a checkerboard.
+                float longitudinal=1.0-smoothstep(0.28,0.42,abs(abs(uv.x)-12.0));
+                float transverse=1.0-smoothstep(0.28,0.42,abs(uv.y-140.0));
+                float band=max(longitudinal,transverse);
+                color=mix(color,color*vec3(0.88,0.89,0.90),band);
+                float warm=smoothstep(18.0,32.0,abs(uv.x));
+                color*=mix(vec3(1.0),vec3(1.014,1.005,0.990),warm);
+            }
+        }
+        else if (astanaArenaFacade == 5)
+        {
+            color=objectColor*(0.72+0.28*diffuse);
+            if (abs(n.y)>0.6)
+            {
+                vec2 grid=uv/vec2(2.4,1.2);
+                grid.x+=mod(floor(grid.y),2.0)*0.5;
+                vec2 edge=min(fract(grid),1.0-fract(grid));
+                vec2 aa=max(fwidth(grid)*0.6,vec2(0.0005));
+                vec2 joints=1.0-smoothstep(vec2(0.004)-aa,vec2(0.004)+aa,edge);
+                float variation=sin(dot(floor(grid),vec2(1.73,2.17)));
+                color*=1.0+0.012*variation;
+                color=mix(color,color*0.80,max(joints.x,joints.y)*0.55);
+            }
+        }
+        else if (astanaArenaFacade == 4)
+        {
+            // Short upper metal collar, open below toward the stadium bowl.
+            {
+                float depth=smoothstep(33.0,37.5,worldPosition.y);
+                color=objectColor*(0.55+0.23*depth)*(0.84+0.16*diffuse);
+                float course=(worldPosition.y-16.0)/3.4;
+                float edge=min(fract(course),1.0-fract(course));
+                float aa=max(fwidth(course)*0.65,0.0004);
+                float joint=1.0-smoothstep(0.004-aa,0.004+aa,edge);
+                color*=1.0-0.16*joint;
+                color+=vec3(0.68,0.73,0.76)*highlight*0.45;
+            }
+        }
+        else if (astanaArenaFacade == 2)
+        {
+            vec3 reflection = reflect(-eye,n);
+            vec3 sky = mix(vec3(0.42,0.47,0.48),vec3(0.56,0.68,0.75),
+                           smoothstep(-0.2,0.6,reflection.y));
+            float fresnel = pow(1.0-max(dot(n,eye),0.0),5.0);
+            vec3 glass=mix(objectColor*(0.75+0.25*diffuse),sky,0.12+0.10*fresnel);
+            glass+=vec3(0.62,0.70,0.74)*pow(max(dot(n,halfDirection),0.0),64.0)*0.035;
+            // Coverage is baked into static vertices with the matching recess.
+            // Solid silver closes the planned gaps between long dark runs.
+            // No repeated pane mullions, office-window grid or transparency.
+            color=mix(silver+vec3(highlight),glass,clamp(uv.y,0.0,1.0));
+        }
+        else
+        {
+            color=objectColor*(0.78+0.22*diffuse);
+            // Very shallow tonal changes span broad metal fields. There are
+            // no dark rectangular seams or regularly repeated square panels.
+            float tone=sin(uv.x*0.09817477+uv.y*0.53);
+            vec3 tint=mix(vec3(0.994,0.997,1.0),vec3(1.0,0.997,0.992),
+                          0.5+0.5*sin(uv.y*0.72));
+            color*=tint*(1.0+0.008*tone);
+            color+=vec3(0.90,0.93,0.95)*highlight;
+            if (astanaArenaFacade == 3 && abs(localPosition.x)<40.5 &&
+                abs(localPosition.z)>47.6 && abs(localPosition.z)<68.6)
+            {
+                // Long Z-aligned aluminum fields, bounded by the real standing
+                // seams. Gentle grouped tones avoid a noisy checkerboard.
+                float panel=floor((localPosition.x+38.0)/4.0);
+                float end=localPosition.z>0.0?0.0:0.7;
+                color*=1.0+0.020*sin(floor(panel/2.0)*1.13+end);
+                float coordinate=(localPosition.x+38.0)/4.0;
+                float edge=min(fract(coordinate),1.0-fract(coordinate));
+                float aa=max(fwidth(coordinate)*0.65,0.0005);
+                float seam=1.0-smoothstep(0.015-aa,0.015+aa,edge);
+                color=mix(color,color*0.72,seam*0.65);
+            }
+        }
+        fragColor = vec4(color,1.0);
+        return;
+    }
     if (esilSurface != 0)
     {
         vec3 color = shadeEsilSurface();

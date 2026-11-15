@@ -7,6 +7,7 @@
 #include <Windows.h>
 #include "BotanicalGarden.h"
 #include "ExpoRoadConnection.h"
+#include "AstanaArenaParking.h"
 #include "Tree.h"
 #include "Bench.h"
 #include "StreetLight.h"
@@ -1475,7 +1476,9 @@ BotanicalGarden::BotanicalGarden()
     roadBox(-501,-374,18,23,0,0.060f);
     roadBox(-366,-239,18,23,0,0.060f);
     roadBox(-374,-366,21,23,0,0.060f);
-    roadBox(-501,-374,-271,-266,0,0.060f);
+    // One local driveway opening; the stadium supplies its curved returns.
+    roadBox(-501,AstanaArenaParking::openingWest,-271,-266,0,0.060f);
+    roadBox(AstanaArenaParking::openingEast,-374,-271,-266,0,0.060f);
     roadBox(-366,-239,-271,-266,0,0.060f);
     roadBox(-374,-366,-271,-269,0,0.060f);
     // Local west-side T-junction: the shared connector supplies the rounded
@@ -1506,7 +1509,12 @@ BotanicalGarden::BotanicalGarden()
     // the small corner squares, and both crossings retain 8 m curb openings.
     for (float z : {-266.25f,18.0f})
     {
-        roadBox(-496.25f,-374,z,z+0.25f,0.04f,0.16f);
+        if(z<0)
+        {
+            roadBox(-496.25f,AstanaArenaParking::openingWest,z,z+0.25f,0.04f,0.16f);
+            roadBox(AstanaArenaParking::openingEast,-374,z,z+0.25f,0.04f,0.16f);
+        }
+        else roadBox(-496.25f,-374,z,z+0.25f,0.04f,0.16f);
         roadBox(-366,-243.75f,z,z+0.25f,0.04f,0.16f);
     }
     roadBox(-496.25f,-496,-266,ExpoRoadConnection::southEnd,0.04f,0.16f);
@@ -1525,7 +1533,8 @@ BotanicalGarden::BotanicalGarden()
     {
         if (x+3>-375 && x<-365) continue;
         roadPaint(x,x+3,11.925f,12.075f);
-        roadPaint(x,x+3,-260.075f,-259.925f);
+        if(x+3<=AstanaArenaParking::openingWest||x>=AstanaArenaParking::openingEast)
+            roadPaint(x,x+3,-260.075f,-259.925f);
     }
     for (float z=-250; z+3<=2; z+=6)
     {

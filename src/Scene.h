@@ -4,6 +4,7 @@
 #include "AbuDhabiLandscaping.h"
 #include "AbuDhabiPlaza.h"
 #include "AkOrda.h"
+#include "AstanaArena.h"
 #include "Baiterek.h"
 #include "Bench.h"
 #include "BotanicalGarden.h"
@@ -43,6 +44,7 @@ private:
     EsilEmbankment esilEmbankment;
     AtyrauBridge atyrauBridge;
     AtyrauCanopy atyrauCanopy;
+    AstanaArena astanaArena;
     Baiterek baiterek;
     BotanicalGarden botanicalGarden;
     ExpoDistrict expoDistrict;
@@ -147,6 +149,7 @@ private:
     GLint megaAtriumGlassLocation = -1;
     GLint sceneTimeLocation = -1;
     GLint esilSurfaceLocation = -1;
+    GLint astanaArenaFacadeLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
     Vec3 lightDirection{-0.5f, -1.0f, -0.3f};

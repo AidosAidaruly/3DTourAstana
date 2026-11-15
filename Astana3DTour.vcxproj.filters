@@ -19,6 +19,8 @@
     <ClCompile Include="src\EsilEmbankment.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\AtyrauBridge.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\AtyrauCanopy.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\AstanaArena.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\AstanaArenaSeats.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\ExpoCanopy.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\NurAlem.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\ExpoPavilion.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -51,6 +53,10 @@
     <ClInclude Include="src\EsilEmbankment.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\AtyrauBridge.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\AtyrauCanopy.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\AstanaArena.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\AstanaArenaParking.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\AstanaArenaLandscape.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\AstanaArenaSeats.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoCanopy.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoRoadConnection.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoUrbanRoads.h"><Filter>Header Files</Filter></ClInclude>

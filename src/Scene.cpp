@@ -220,6 +220,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     megaAtriumGlassLocation = shader.uniformLocation("megaAtriumGlass");
     sceneTimeLocation = shader.uniformLocation("sceneTime");
     esilSurfaceLocation = shader.uniformLocation("esilSurface");
+    astanaArenaFacadeLocation = shader.uniformLocation("astanaArenaFacade");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
     textureRepeatLocation = shader.uniformLocation("textureRepeat");
@@ -258,6 +259,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1i(megaAtriumGlassLocation, GL_FALSE);
     glUniform1f(sceneTimeLocation, time);
     glUniform1i(esilSurfaceLocation, 0);
+    glUniform1i(astanaArenaFacadeLocation, 0);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
     glUniform1f(ambientStrengthLocation, ambientStrength);
@@ -275,6 +277,9 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
                         useObjectColorLocation, esilSurfaceLocation);
     atyrauCanopy.render(modelLocation, objectColorLocation,
                         useObjectColorLocation, esilSurfaceLocation);
+    astanaArena.render(modelLocation, objectColorLocation, useObjectColorLocation,
+                       astanaArenaFacadeLocation,useAsphaltLocation);
+    astanaArena.renderSeats(view,projection,lightDirection);
 
     expoDistrict.render(modelLocation, objectColorLocation, useObjectColorLocation,
                         useGrassLocation, useTextureLocation, textureRepeatLocation, plazaTexture, shaftGlassLocation, nurAlemFacadeLocation, useAsphaltLocation);

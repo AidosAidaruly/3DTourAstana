@@ -63,6 +63,8 @@
     <ClCompile Include="src\EsilEmbankment.cpp" />
     <ClCompile Include="src\AtyrauBridge.cpp" />
     <ClCompile Include="src\AtyrauCanopy.cpp" />
+    <ClCompile Include="src\AstanaArena.cpp" />
+    <ClCompile Include="src\AstanaArenaSeats.cpp" />
     <ClCompile Include="src\ExpoCanopy.cpp" />
     <ClCompile Include="src\NurAlem.cpp" />
     <ClCompile Include="src\ExpoPavilion.cpp" />
@@ -95,6 +97,10 @@
     <ClInclude Include="src\EsilEmbankment.h" />
     <ClInclude Include="src\AtyrauBridge.h" />
     <ClInclude Include="src\AtyrauCanopy.h" />
+    <ClInclude Include="src\AstanaArena.h" />
+    <ClInclude Include="src\AstanaArenaParking.h" />
+    <ClInclude Include="src\AstanaArenaLandscape.h" />
+    <ClInclude Include="src\AstanaArenaSeats.h" />
     <ClInclude Include="src\ExpoCanopy.h" />
     <ClInclude Include="src\ExpoRoadConnection.h" />
     <ClInclude Include="src\ExpoUrbanRoads.h" />
