@@ -8,6 +8,10 @@
 #include "Bench.h"
 #include "BotanicalGarden.h"
 #include "ExpoDistrict.h"
+#include "EsilRiver.h"
+#include "EsilEmbankment.h"
+#include "AtyrauBridge.h"
+#include "AtyrauCanopy.h"
 #include "ExpoResidence.h"
 #include "ExpoPremiumResidence.h"
 #include "MegaSilkWay.h"
@@ -35,6 +39,10 @@ public:
 private:
     Shader shader;
     Mesh mesh;
+    EsilRiver esilRiver;
+    EsilEmbankment esilEmbankment;
+    AtyrauBridge atyrauBridge;
+    AtyrauCanopy atyrauCanopy;
     Baiterek baiterek;
     BotanicalGarden botanicalGarden;
     ExpoDistrict expoDistrict;
@@ -138,6 +146,7 @@ private:
     GLint expoCanopyGlassLocation = -1;
     GLint megaAtriumGlassLocation = -1;
     GLint sceneTimeLocation = -1;
+    GLint esilSurfaceLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
     Vec3 lightDirection{-0.5f, -1.0f, -0.3f};
@@ -145,10 +154,9 @@ private:
     float diffuseStrength = 0.65f;
 
     // World scale: 1 unit = 1 meter; Baiterek's reference point stays at the origin.
-    // Preserve existing coverage while moving EXPO behind the garden's east view.
-    // Continuous terrain: X=-1500..300, Z=-1000..950. Preserve all existing
-    // coverage and add the southern margin required by MEGA's approved site.
-    Mat4 groundModel = modelMatrix({-600, 0, -25}, 0, {18, 1, 19.5f});
+    // EsilRiver owns the continuous X=-1500..800, Z=-1000..950 ground
+    // with an actual curved opening for the recessed channel. Other terrain
+    // appearance and all existing landmark transforms remain unchanged.
 
     // The 100 x 60 meter plaza is centered at the origin; its top is at y = 0.05.
     Mat4 plazaModel = modelMatrix({0, 0, 0}, 0, {100, 0.1f, 60});

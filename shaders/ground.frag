@@ -35,6 +35,7 @@ uniform bool greenhouseGlass;
 uniform bool expoCanopyGlass;
 uniform bool megaAtriumGlass;
 uniform float sceneTime;
+uniform int esilSurface; // 0 city, 1 bank, 2 water, 3 promenade, 4 coping, 5 rail, 6 fine bridge steel, 7 ivory scales, 8 bridge stone
 uniform int talanFacadeMode;
 
 vec3 shadeGoldenPanels(vec3 normal, vec3 toLight, float lambert)
@@ -187,8 +188,109 @@ vec3 shadeNurAlemGlass(vec3 baseColor, vec3 normal, vec3 toLight, float lambert)
     return mix(color, silver, mullion * 0.86);
 }
 
+// River materials are local to the new static meshes; all existing city
+// materials and their transparency paths stay below, unchanged.
+vec3 shadeEsilSurface()
+{
+    vec3 normal = normalize(worldNormal);
+    vec3 toLight = normalize(-lightDirection);
+    if (esilSurface >= 3)
+    {
+        float daylight = ambientStrength + diffuseStrength*max(dot(normal,toLight),0.0);
+        if (esilSurface == 3)
+        {
+            // Staggered 1.2 x 0.6 m stone slabs; every junction uses the same
+            // world-space grid, with no individual tile meshes or draw calls.
+            float row = floor(worldPosition.z/0.6);
+            vec2 grid = vec2((worldPosition.x+mod(row,2.0)*0.6)/1.2,worldPosition.z/0.6);
+            vec2 edge = min(fract(grid),1.0-fract(grid));
+            vec2 aa = max(fwidth(grid)*0.6,vec2(0.0005));
+            vec2 joint = 1.0-smoothstep(vec2(0.005,0.010),vec2(0.005,0.010)+aa,edge);
+            float variation = fract(sin(dot(floor(grid),vec2(12.9898,78.233)))*43758.5453);
+            vec3 tile = mix(vec3(0.77,0.78,0.76),vec3(0.82,0.81,0.78),variation);
+            return mix(tile,vec3(0.55,0.56,0.54),max(joint.x,joint.y)*0.65)*daylight;
+        }
+        if (esilSurface == 4)
+        {
+            float grain = sin(worldPosition.x*3.1)*sin(worldPosition.z*2.7);
+            return vec3(0.66,0.67,0.64)*(1.0+0.018*grain)*daylight;
+        }
+        if (esilSurface == 6)
+            return vec3(0.73,0.76,0.75)*(0.70+0.30*max(dot(normal,toLight),0.0));
+        if (esilSurface == 7)
+            return vec3(0.94,0.93,0.89)*(0.84+0.16*abs(dot(normal,toLight)));
+        if (esilSurface == 8)
+        {
+            // UV metres follow the unchanged deck's centerline, so slabs and
+            // border courses bend naturally with the bridge's S alignment.
+            float course = floor(uv.x/0.60);
+            vec2 grid = vec2(uv.x/0.60,(uv.y+mod(course,2.0)*0.60)/1.20);
+            vec2 edge = min(fract(grid),1.0-fract(grid));
+            vec2 aa = max(fwidth(grid)*0.55,vec2(0.0003));
+            vec2 halfJoint = vec2(0.0025/0.60,0.0025/1.20);
+            vec2 joints = 1.0-smoothstep(halfJoint,halfJoint+aa,edge);
+            float variation = fract(sin(dot(floor(grid),vec2(12.9898,78.233)))*43758.5453);
+            vec3 tile = mix(vec3(0.77,0.78,0.76),vec3(0.81,0.80,0.77),variation);
+            float grain = sin(uv.x*19.0+uv.y*3.0)*sin(uv.y*17.0-uv.x*2.0);
+            tile *= 1.0+0.006*grain;
+            vec3 stone = mix(tile,vec3(0.56,0.57,0.55),max(joints.x,joints.y)*0.60);
+            float across = abs(uv.x);
+            if (across > 5.02)
+            {
+                float seam = min(fract(uv.y/1.80),1.0-fract(uv.y/1.80));
+                float bandJoint = 1.0-smoothstep(0.002,0.002+max(fwidth(uv.y/1.80)*0.55,0.0003),seam);
+                stone = mix(vec3(0.73,0.74,0.70),vec3(0.54,0.55,0.52),bandJoint*0.55);
+                if (across > 5.42) stone = vec3(0.46,0.49,0.48);
+            }
+            // Flush movement joints finish the two existing Y=0.04 landings;
+            // these are part of the same surface, with no overlaid slab.
+            float landing = min(abs(worldPosition.x-391.5),abs(worldPosition.x-628.5));
+            float gasket = 1.0-smoothstep(0.025,0.025+max(fwidth(worldPosition.x)*0.6,0.0004),landing);
+            stone = mix(stone,vec3(0.38,0.40,0.39),gasket*0.80);
+            return stone*daylight;
+        }
+        return vec3(0.67,0.71,0.72)*(0.70+0.30*max(dot(normal,toLight),0.0));
+    }
+    if (esilSurface == 1)
+    {
+        float checker = mod(floor(worldPosition.x) + floor(worldPosition.z), 2.0);
+        vec3 grass = mix(vec3(0.48,0.56,0.42), vec3(0.51,0.59,0.45), checker);
+        float grain = sin(worldPosition.x*1.7 + worldPosition.z*0.8) *
+                      sin(worldPosition.x*0.7 - worldPosition.z*1.3);
+        vec3 earth = mix(vec3(0.40,0.38,0.31), vec3(0.52,0.51,0.45), 0.5+0.18*grain);
+        earth *= mix(0.78,1.0,smoothstep(-3.6,-2.4,worldPosition.y));
+        vec3 base = mix(earth,grass,smoothstep(-2.7,-0.15,worldPosition.y));
+        return base * (ambientStrength + diffuseStrength*max(dot(normal,toLight),0.0));
+    }
+    // Only the shading moves: the opaque water surface stays exactly at -3.6 m,
+    // keeping its shoreline seam stable and avoiding transparency sorting.
+    float a = worldPosition.x*0.16 + worldPosition.z*0.085 - sceneTime*0.65;
+    float b = worldPosition.x*0.072 - worldPosition.z*0.19 + sceneTime*0.43;
+    normal = normalize(vec3(0.032*cos(a)+0.018*cos(b),1.0,
+                            0.020*sin(a)-0.025*sin(b)));
+    vec3 viewDirection = normalize(worldViewDirection);
+    float fresnel = pow(1.0-max(dot(normal,viewDirection),0.0),5.0);
+    float shore = 1.0-smoothstep(0.0,0.055,min(uv.x,1.0-uv.x));
+    vec3 body = mix(vec3(0.13,0.30,0.29),vec3(0.23,0.37,0.33),shore*0.50);
+    body *= 1.0 + 0.018*sin(a)*sin(b);
+    float daylight = ambientStrength + diffuseStrength*max(dot(normal,toLight),0.0);
+    vec3 reflection = reflect(-viewDirection,normal);
+    vec3 sky = mix(vec3(0.46,0.58,0.59),vec3(0.52,0.70,0.80),smoothstep(0.0,0.75,reflection.y));
+    vec3 color = mix(body*daylight,sky,0.16+0.32*fresnel);
+    vec3 halfDirection = normalize(toLight+viewDirection);
+    color += vec3(0.90,0.94,0.91)*pow(max(dot(normal,halfDirection),0.0),100.0)*0.20;
+    return color;
+}
+
 void main()
 {
+    if (esilSurface != 0)
+    {
+        vec3 color = shadeEsilSurface();
+        float fade = smoothstep(750.0,1000.0,length(worldViewDirection));
+        fragColor = vec4(mix(color,vec3(0.65,0.80,0.92),fade),1.0);
+        return;
+    }
     vec3 baseColor = objectColor;
 
     if (!useObjectColor)

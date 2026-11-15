@@ -1,4 +1,5 @@
 #include "Camera.h"
+#include "AtyrauBridge.h"
 
 #include <GLFW/glfw3.h>
 
@@ -13,6 +14,9 @@ void Camera::setViewpoint(Vec3 eye, Vec3 target)
     );
 
     position = eye;
+    // A teleport cancels an old landing; an elevated walking viewpoint gets
+    // the same smooth return instead of an abrupt height correction.
+    returningToWalk = !freeFlight && std::abs(position.y - (walkingEyeHeight + AtyrauAlignment::walkingSurfaceHeight(position))) > 0.01f;
     yaw = std::atan2(direction.z, direction.x) * 180.0f / pi;
     pitch = std::clamp(
         std::atan2(direction.y, horizontalDistance) * 180.0f / pi,
@@ -85,13 +89,19 @@ void Camera::processInput(GLFWwindow* window, float dt)
     {
         freeFlight = !freeFlight;
 
-        if (!freeFlight)
-        {
-            position.y = walkingEyeHeight;
-        }
+        returningToWalk = !freeFlight &&
+            std::abs(position.y - (walkingEyeHeight + AtyrauAlignment::walkingSurfaceHeight(position))) > 0.01f;
     }
 
     fWasPressed = fPressed;
+
+    bool gPressed = glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS;
+    if (freeFlight && gPressed && !gWasPressed)
+    {
+        fastFlight = !fastFlight;
+    }
+    gWasPressed = gPressed;
+    sprintHeld = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS;
 
     // Both modes use yaw for horizontal travel; pitch affects looking only.
     Vec3 f = forward();
@@ -133,12 +143,57 @@ void Camera::processInput(GLFWwindow* window, float dt)
         }
     }
 
-    float speed = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS
-        ? 15.0f : 5.0f;
+    float speed = movementSpeed();
+    dt = std::max(dt, 0.0f);
 
     // Normalize combined input so diagonal movement is not faster.
     if (dot(movement, movement) > 0)
     {
         position = position + normalize(movement) * (speed * dt);
     }
+
+    if (!freeFlight)
+    {
+        float eyeY = walkingEyeHeight + AtyrauAlignment::walkingSurfaceHeight(position);
+        // Follow the new deck while walking. Leaving its side uses the same
+        // smooth return as F, rather than an abrupt drop to the ground datum.
+        if (!returningToWalk && std::abs(position.y - eyeY) > 0.25f)
+        {
+            returningToWalk = true;
+        }
+        if (returningToWalk)
+        {
+            // Time-based easing, capped at 30 m/s, avoids an instantaneous
+            // drop from an elevated flight view. F cancels the descent.
+            float remaining = eyeY - position.y;
+            float step = remaining * (1.0f - std::exp(-6.0f * dt));
+            position.y += std::clamp(step, -30.0f * dt, 30.0f * dt);
+            if (std::abs(position.y - eyeY) < 0.01f)
+            {
+                position.y = eyeY;
+                returningToWalk = false;
+            }
+        }
+        else
+        {
+            position.y = eyeY;
+        }
+    }
+}
+
+float Camera::movementSpeed() const
+{
+    if (freeFlight && fastFlight)
+    {
+        return sprintHeld ? 50.0f : 25.0f;
+    }
+    return sprintHeld ? 15.0f : 5.0f;
+}
+
+const char* Camera::movementModeName() const
+{
+    if (returningToWalk) return "LANDING";
+    if (!freeFlight) return sprintHeld ? "SPRINT" : "WALK";
+    if (fastFlight) return sprintHeld ? "TURBO FLIGHT" : "FAST FLIGHT";
+    return sprintHeld ? "FLIGHT SPRINT" : "FLIGHT";
 }

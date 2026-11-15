@@ -74,7 +74,7 @@ int main(int argc, char** argv)
     Camera camera;
     constexpr Vec3 botanicalGarden = BotanicalGarden::center;
     constexpr Vec3 expo = ExpoDistrict::center;
-    std::array<LandmarkViewpoint, 3> viewpoints{{
+    std::array<LandmarkViewpoint, 4> viewpoints{{
         // 6: Just inside the east entrance, looking along the garden axis.
         {GLFW_KEY_6, {botanicalGarden.x + 101.0f, 3.0f, botanicalGarden.z},
          botanicalGarden},
@@ -83,7 +83,9 @@ int main(int argc, char** argv)
          {expo.x, 42.0f, expo.z}},
         // 8: Clear prepared ground, 35 m in front of MEGA's +Z short end.
         {GLFW_KEY_8, {-950.0f, 3.0f, -440.0f},
-         {-950.0f, 3.0f, -475.0f}}
+         {-950.0f, 3.0f, -475.0f}},
+        // 9: Solid western embankment approach, facing the future bridge.
+        {GLFW_KEY_9, EsilEmbankment::riverViewEye, EsilEmbankment::riverViewTarget}
     }};
 
     glfwSetWindowUserPointer(window, &camera);
@@ -187,8 +189,9 @@ int main(int argc, char** argv)
             {
                 char title[160];
                 std::snprintf(title, sizeof(title),
-                    "Astana 3D Tour | %.1f FPS | %.2f ms avg | WASD + mouse | ESC to close",
-                    renderedFrames / elapsed, elapsed * 1000.0 / renderedFrames);
+                    "Astana 3D Tour | %.1f FPS | %.2f ms avg | %s %.0f m/s | F fly | G fast | ESC exit",
+                    renderedFrames / elapsed, elapsed * 1000.0 / renderedFrames,
+                    camera.movementModeName(), camera.movementSpeed());
                 glfwSetWindowTitle(window, title);
                 statisticsStart = statisticsEnd;
                 renderedFrames = 0;

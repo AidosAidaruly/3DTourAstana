@@ -76,12 +76,19 @@ The executable is generated at `bin\x64\Debug\Astana3DTour.exe`. The project cop
 | **W / S** | Move forward / backward parallel to the ground. |
 | **A / D** | Strafe left / right. |
 | **Mouse** | Rotate the camera using the captured cursor. |
+| **Left Shift** | Hold to sprint at 15 m/s; during fast flight, hold for turbo flight at 50 m/s. |
+| **F** | Toggle free flight; returning to walking smoothly descends to the fixed 3 m eye height. Press F again to cancel the descent. |
+| **G** | In flight, toggle normal 5 m/s / fast 25 m/s travel. The fast-flight preference is remembered between flights. |
+| **Space / Left Ctrl** | Move up / down in free flight. |
 | **6** | Teleport to the Botanical Garden's east entrance, facing its center. |
 | **7** | Teleport to EXPO, facing Nur Alem and its east entrance. |
 | **8** | Teleport to MEGA Silk Way, facing its main entrance. |
+| **9** | Teleport to the Esil western promenade / future Atyrau Bridge approach, facing across the river. |
 | **ESC** | Exit the application. |
 
-Movement speed is 5 world units per second. Mouse look limits the pitch to prevent the camera from flipping.
+Normal movement is 5 m/s, sprint is 15 m/s, fast flight is 25 m/s, and turbo flight is 50 m/s. Movement is frame-time based and combined horizontal/vertical input is normalized. Walking stays at a 3 m eye height above the ground after the smooth return from flight. On Atyrau Bridge it follows the raised deck at the same eye height; the existing flat-ground behavior elsewhere is unchanged. Mouse look is unchanged. The window title retains FPS and average frame time and shows the movement mode and speed, updated about once per second.
+
+The Esil River / Atyrau Bridge district occupies the **positive-X Baiterek side**, away from EXPO and MEGA. It includes recessed water and sloped banks, two stone promenades, the curved Atyrau Bridge with its 818-panel lattice canopy, riverside planting, urban furniture, four viewing terraces, garden paths and flowerbeds. Key 9 visits the western bridge approach. See [the district documentation](docs/EsilRiverDistrict.md) for coordinates, geometry and verification details.
 
 ## Planned Features
 

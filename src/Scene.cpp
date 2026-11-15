@@ -219,6 +219,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     expoCanopyGlassLocation = shader.uniformLocation("expoCanopyGlass");
     megaAtriumGlassLocation = shader.uniformLocation("megaAtriumGlass");
     sceneTimeLocation = shader.uniformLocation("sceneTime");
+    esilSurfaceLocation = shader.uniformLocation("esilSurface");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
     textureRepeatLocation = shader.uniformLocation("textureRepeat");
@@ -256,6 +257,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1i(expoCanopyGlassLocation, GL_FALSE);
     glUniform1i(megaAtriumGlassLocation, GL_FALSE);
     glUniform1f(sceneTimeLocation, time);
+    glUniform1i(esilSurfaceLocation, 0);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
     glUniform1f(ambientStrengthLocation, ambientStrength);
@@ -263,9 +265,16 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniformMatrix4fv(viewLocation, 1, GL_FALSE, view.data());
     glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, projection.data());
 
-    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, groundModel.data());
     glUniform1i(useObjectColorLocation, GL_FALSE);
-    mesh.drawGround();
+    esilRiver.renderTerrain(modelLocation);
+    esilRiver.renderRiver(modelLocation, objectColorLocation,
+                         useObjectColorLocation, esilSurfaceLocation);
+    esilEmbankment.render(modelLocation, objectColorLocation,
+                          useObjectColorLocation, esilSurfaceLocation);
+    atyrauBridge.render(modelLocation, objectColorLocation,
+                        useObjectColorLocation, esilSurfaceLocation);
+    atyrauCanopy.render(modelLocation, objectColorLocation,
+                        useObjectColorLocation, esilSurfaceLocation);
 
     expoDistrict.render(modelLocation, objectColorLocation, useObjectColorLocation,
                         useGrassLocation, useTextureLocation, textureRepeatLocation, plazaTexture, shaftGlassLocation, nurAlemFacadeLocation, useAsphaltLocation);

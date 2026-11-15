@@ -12,6 +12,8 @@ public:
     void mouseLook(double x, double y);
     void resetMouse();
     Mat4 viewMatrix() const;
+    const char* movementModeName() const;
+    float movementSpeed() const;
 
 private:
     Vec3 forward() const;
@@ -24,4 +26,8 @@ private:
     bool firstMouse = true;
     bool freeFlight = false;
     bool fWasPressed = false;
+    bool gWasPressed = false;
+    bool fastFlight = false;
+    bool sprintHeld = false;
+    bool returningToWalk = false;
 };

@@ -59,6 +59,10 @@
     <ClCompile Include="src\Bench.cpp" />
     <ClCompile Include="src\BotanicalGarden.cpp" />
     <ClCompile Include="src\ExpoDistrict.cpp" />
+    <ClCompile Include="src\EsilRiver.cpp" />
+    <ClCompile Include="src\EsilEmbankment.cpp" />
+    <ClCompile Include="src\AtyrauBridge.cpp" />
+    <ClCompile Include="src\AtyrauCanopy.cpp" />
     <ClCompile Include="src\ExpoCanopy.cpp" />
     <ClCompile Include="src\NurAlem.cpp" />
     <ClCompile Include="src\ExpoPavilion.cpp" />
@@ -87,6 +91,10 @@
     <ClInclude Include="src\Bench.h" />
     <ClInclude Include="src\BotanicalGarden.h" />
     <ClInclude Include="src\ExpoDistrict.h" />
+    <ClInclude Include="src\EsilRiver.h" />
+    <ClInclude Include="src\EsilEmbankment.h" />
+    <ClInclude Include="src\AtyrauBridge.h" />
+    <ClInclude Include="src\AtyrauCanopy.h" />
     <ClInclude Include="src\ExpoCanopy.h" />
     <ClInclude Include="src\ExpoRoadConnection.h" />
     <ClInclude Include="src\ExpoUrbanRoads.h" />

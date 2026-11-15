@@ -15,6 +15,10 @@
     <ClCompile Include="src\Bench.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\BotanicalGarden.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\ExpoDistrict.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\EsilRiver.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\EsilEmbankment.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\AtyrauBridge.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\AtyrauCanopy.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\ExpoCanopy.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\NurAlem.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\ExpoPavilion.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -43,6 +47,10 @@
     <ClInclude Include="src\Bench.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\BotanicalGarden.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoDistrict.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\EsilRiver.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\EsilEmbankment.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\AtyrauBridge.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\AtyrauCanopy.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoCanopy.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoRoadConnection.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\ExpoUrbanRoads.h"><Filter>Header Files</Filter></ClInclude>
