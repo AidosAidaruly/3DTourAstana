@@ -60,7 +60,7 @@ namespace
 
     // Five-meter inner sidewalks and four-meter outer sidewalks leave room
     // for later planting without occupying the entrance forecourt.
-    constexpr std::array<PavingRectangle, 10> abuDhabiSidewalks{{
+    constexpr std::array<PavingRectangle, 11> abuDhabiSidewalks{{
         {-195.0f, -68.0f, 38.0f, 43.0f},
         {-195.0f, -68.0f, 170.0f, 175.0f},
         {-195.0f, -190.0f, 43.0f, 170.0f},
@@ -69,13 +69,15 @@ namespace
         {-209.0f, -205.0f, 28.0f, 185.0f},
         {-58.0f, -54.0f, 28.0f, 50.0f},
         {-58.0f, -54.0f, 60.0f, 185.0f},
-        {-205.0f, -58.0f, 24.0f, 28.0f},
+        // Local Northern Lights driveway mouth; all street alignments stay fixed.
+        {-205.0f, -183.0f, 24.0f, 28.0f},
+        {-174.0f, -58.0f, 24.0f, 28.0f},
         {-205.0f, -58.0f, 185.0f, 189.0f}
     }};
 
     // Curbs sit inside the asphalt edges. The two east curbs open at the
     // marked pedestrian crossing, and no curb runs across a vehicle junction.
-    constexpr std::array<PavingRectangle, 11> abuDhabiRoadCurbs{{
+    constexpr std::array<PavingRectangle, 12> abuDhabiRoadCurbs{{
         // A 6-meter curb opening at z = 162..168 serves the side parking court.
         {-205.0f, -204.7f, 38.0f, 162.0f},
         {-205.0f, -204.7f, 168.0f, 175.0f},
@@ -85,7 +87,8 @@ namespace
         {-58.3f, -58.0f, 38.0f, 50.0f},
         {-58.3f, -58.0f, 60.0f, 175.0f},
         {-195.0f, -68.0f, 37.7f, 38.0f},
-        {-205.0f, -58.0f, 28.0f, 28.3f},
+        {-205.0f, -183.0f, 28.0f, 28.3f},
+        {-174.0f, -58.0f, 28.0f, 28.3f},
         {-195.0f, -68.0f, 175.0f, 175.3f},
         {-205.0f, -58.0f, 184.7f, 185.0f}
     }};
@@ -221,6 +224,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     sceneTimeLocation = shader.uniformLocation("sceneTime");
     esilSurfaceLocation = shader.uniformLocation("esilSurface");
     astanaArenaFacadeLocation = shader.uniformLocation("astanaArenaFacade");
+    northernLightsFacadeLocation = shader.uniformLocation("northernLightsFacade");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
     textureRepeatLocation = shader.uniformLocation("textureRepeat");
@@ -260,6 +264,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1f(sceneTimeLocation, time);
     glUniform1i(esilSurfaceLocation, 0);
     glUniform1i(astanaArenaFacadeLocation, 0);
+    glUniform1i(northernLightsFacadeLocation, 0);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
     glUniform1f(ambientStrengthLocation, ambientStrength);
@@ -792,8 +797,8 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     );
     building.render(mesh, modelLocation, objectColorLocation);
     secondBuilding.render(mesh, modelLocation, objectColorLocation);
-    thirdBuilding.render(mesh, modelLocation, objectColorLocation);
-    fourthBuilding.render(mesh, modelLocation, objectColorLocation);
+    northernLights.render(modelLocation,objectColorLocation,useObjectColorLocation,northernLightsFacadeLocation);
+    glUniform1i(useObjectColorLocation,GL_TRUE);
     talanTowers.render(mesh, modelLocation, objectColorLocation, talanFacadeLocation);
     glUniform1i(talanFacadeLocation, 0);
     abuDhabiPlaza.render(

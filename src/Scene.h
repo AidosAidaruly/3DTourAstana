@@ -5,6 +5,7 @@
 #include "AbuDhabiPlaza.h"
 #include "AkOrda.h"
 #include "AstanaArena.h"
+#include "NorthernLights.h"
 #include "Baiterek.h"
 #include "Bench.h"
 #include "BotanicalGarden.h"
@@ -105,9 +106,9 @@ private:
     };
     Building secondBuilding{{140, 17.5f, -20}, {20, 35, 14}, {0.62f, 0.69f, 0.76f}};
 
-    // Opposite-side buildings stay clear of the plaza and pedestrian axis.
-    Building thirdBuilding{{-75, 15, 0}, {18, 30, 14}, {0.48f, 0.57f, 0.63f}};
-    Building fourthBuilding{{-100, 20, -35}, {22, 40, 16}, {0.67f, 0.70f, 0.72f}};
+    // The western placeholder pair is replaced by the shared Northern Lights
+    // podium. Local +Z faces Baiterek (+X); its south walk meets Z=24.
+    NorthernLights northernLights{{-100,0,-36},90.0f};
 
     // The shared podium stays clear of the existing buildings and park.
     TalanTowers talanTowers{{85, 0, -65}};
@@ -150,6 +151,7 @@ private:
     GLint sceneTimeLocation = -1;
     GLint esilSurfaceLocation = -1;
     GLint astanaArenaFacadeLocation = -1;
+    GLint northernLightsFacadeLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
     Vec3 lightDirection{-0.5f, -1.0f, -0.3f};

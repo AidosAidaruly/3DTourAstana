@@ -37,6 +37,7 @@ uniform bool megaAtriumGlass;
 uniform float sceneTime;
 uniform int esilSurface; // 0 city, 1 bank, 2 water, 3 promenade, 4 coping, 5 rail, 6 fine bridge steel, 7 ivory scales, 8 bridge stone
 uniform int astanaArenaFacade; // 0 unchanged, 1 silver, 2 glazing, 3 cassettes, 4 collar, 5 entry stone, 6 pitch, 7 bowl
+uniform int northernLightsFacade; // 0 existing opaque, 1 turquoise tower, 2 tinted podium, 3 paving, 4 light metal, 5 dark profiles
 uniform int talanFacadeMode;
 
 vec3 shadeGoldenPanels(vec3 normal, vec3 toLight, float lambert)
@@ -317,6 +318,94 @@ float arenaPitchLines(vec2 p)
 
 void main()
 {
+    if (northernLightsFacade != 0)
+    {
+        vec3 n=normalize(worldNormal),sun=normalize(-lightDirection);
+        float diffuse=max(dot(n,sun),0.0);
+        vec3 color=objectColor*(0.76+0.24*diffuse);
+        if (northernLightsFacade==1)
+        {
+            vec3 eye=normalize(worldViewDirection),reflection=reflect(-eye,n);
+            float facing=max(dot(n,eye),0.0);
+            float fresnel=pow(1.0-facing,5.0);
+            float corner=smoothstep(.12,.45,min(abs(n.x),abs(n.z)));
+            vec3 sky=mix(vec3(.24,.39,.43),vec3(.57,.75,.82),smoothstep(-.25,.75,reflection.y));
+            float horizon=1.0-smoothstep(.04,.35,abs(reflection.y-.05));
+            sky+=vec3(.018,.025,.029)*horizon;
+            // Gentle grouped shifts suggest blue-green glass coatings, not
+            // randomly colored apartment windows or a patchwork of panels.
+            float group=.5+.5*sin(floor(uv.x/3.0)*.61+floor(uv.y/8.0)*.93);
+            vec3 coating=mix(vec3(.97,1.0,1.015),vec3(1.015,1.0,.98),group);
+            vec3 glass=objectColor*coating*(.78+.22*diffuse);
+            float row=fract(uv.y),spandrel=smoothstep(.79,.84,row);
+            glass=mix(glass,glass*vec3(.84,.89,.92),spandrel*.65);
+            color=mix(glass,sky,.30+.20*fresnel+.055*corner);
+            vec2 edge=min(fract(uv),1.0-fract(uv));
+            vec2 aa=max(fwidth(uv)*.65,vec2(.0005));
+            float gasket=1.0-smoothstep(.012-aa.x,.012+aa.x,edge.x);
+            float transom=1.0-smoothstep(.004-aa.y,.004+aa.y,abs(row-.79));
+            float visibility=1.0-smoothstep(.10,.35,fwidth(uv.x));
+            color=mix(color,color*vec3(.56,.62,.65),max(gasket,transom*.45)*.62*visibility);
+            vec3 halfDirection=normalize(sun+eye);
+            color+=vec3(.72,.86,.88)*pow(max(dot(n,halfDirection),0.0),96.0)*.11;
+        }
+        else if (northernLightsFacade==2)
+        {
+            vec3 eye=normalize(worldViewDirection),reflection=reflect(-eye,n);
+            vec3 sky=mix(vec3(.25,.39,.43),vec3(.57,.74,.80),smoothstep(-.25,.65,reflection.y));
+            float fresnel=pow(1.0-max(dot(n,eye),0.0),5.0);
+            if (abs(n.y)>.75)
+            {
+                // Pale opaque reflective canopy glazing, in the existing
+                // glass material batch; its real silver ribs bound the panes.
+                color=mix(vec3(.38,.56,.60)*(.78+.22*diffuse),sky,.30+.18*fresnel);
+            }
+            else
+            {
+                float level=step(3.92,localPosition.y)+step(7.72,localPosition.y);
+                vec3 tint=mix(vec3(1.0,1.01,1.04),vec3(.96,1.0,1.06),level*.5);
+                vec3 glass=objectColor*tint*(.76+.24*diffuse)*(level<.5?1.12:1.0);
+                color=mix(glass,sky,.24+.18*fresnel);
+                float edge=min(fract(uv.x),1.0-fract(uv.x));
+                float aa=max(fwidth(uv.x)*.65,.0005);
+                float gasket=1.0-smoothstep(.008-aa,.008+aa,edge);
+                float visibility=1.0-smoothstep(.12,.40,fwidth(uv.x));
+                color=mix(color,color*.68,gasket*.55*visibility);
+                color*=1.0+.012*sin(floor(uv.x/2.0)*.62+level*.73);
+            }
+            vec3 halfDirection=normalize(sun+eye);
+            color+=vec3(.72,.85,.88)*pow(max(dot(n,halfDirection),0.0),80.0)*.09;
+        }
+        else if (northernLightsFacade==6)
+        {
+            // New static parking/driveway only. No changes to glass shading.
+            float grain=.5+.5*sin(worldPosition.x*73.1+sin(worldPosition.z*51.7)*3.0);
+            float broad=.5+.5*sin(worldPosition.x*.27+worldPosition.z*.19);
+            color=objectColor*(.91+.045*grain+.035*broad)*(.78+.22*diffuse);
+        }
+        else if (northernLightsFacade==5)
+        {
+            if (uv.y<-999.0 && length(worldViewDirection)>65.0) discard;
+            // Identical diffuse shading for the retained podium metalwork.
+            // Fine profiles alone carry the negative UV marker above.
+            color=objectColor*(ambientStrength+diffuseStrength*diffuse);
+        }
+        else if (northernLightsFacade==4)
+        {
+            // Broad sky fill keeps the floor edges readable from below.
+            vec3 halfDirection=normalize(sun+normalize(worldViewDirection));
+            color=objectColor*(0.78+0.22*diffuse)+vec3(.04)*pow(max(dot(n,halfDirection),0.0),40.0);
+        }
+        else if (abs(n.y)>0.6)
+        {
+            vec2 grid=uv/vec2(1.8,.9);grid.x+=mod(floor(grid.y),2.0)*.5;
+            vec2 edge=min(fract(grid),1.0-fract(grid)),aa=max(fwidth(grid)*.65,vec2(.0005));
+            vec2 joint=1.0-smoothstep(vec2(.005)-aa,vec2(.005)+aa,edge);
+            color*=1.0-.16*max(joint.x,joint.y);
+        }
+        fragColor=vec4(color,1.0);
+        return;
+    }
     if (astanaArenaFacade != 0)
     {
         vec3 n = normalize(worldNormal);
