@@ -80,6 +80,8 @@ The executable is generated at `bin\x64\Debug\Astana3DTour.exe`. The project cop
 | **F** | Toggle free flight; returning to walking smoothly descends to the fixed 3 m eye height. Press F again to cancel the descent. |
 | **G** | In flight, toggle normal 5 m/s / fast 25 m/s travel. The fast-flight preference is remembered between flights. |
 | **Space / Left Ctrl** | Move up / down in free flight. |
+| **1 / 2 / 3** | Teleport to Baiterek / Talan Towers / Khan Shatyr. |
+| **5** | Teleport to Ak Orda. |
 | **6** | Teleport to the Botanical Garden's east entrance, facing its center. |
 | **7** | Teleport to EXPO, facing Nur Alem and its east entrance. |
 | **8** | Teleport to MEGA Silk Way, facing its main entrance. |

@@ -1,4 +1,5 @@
 #include "ExpoDistrict.h"
+#include "CityRoadPlan.h"
 #include "ExpoCanopy.h"
 #include "ExpoRoadConnection.h"
 #include "ExpoUrbanRoads.h"
@@ -749,7 +750,7 @@ namespace
             if(leftJunction&&ExpoUrbanRoads::atWestJunction((a.p+b.p)*.5f))continue;
             // Local south-side opening for the relocated MEGA T-junction only.
             // The old carriageway and every other sidewalk remain unchanged.
-            if(inner>=6&&MegaSilkWaySite::atJunction((a.p+b.p)*.5f))continue;
+            if(inner>=6&&(MegaSilkWaySite::atJunction((a.p+b.p)*.5f)||CityRoadPlan::expoOpening((a.p+b.p)*.5f)))continue;
             if(outer<-6&&MegaSilkWaySite::atParkingJunction((a.p+b.p)*.5f))continue;
             landscapeStrip(v,ix,{{urbanStreetPoint(a,inner,y),urbanStreetPoint(a,outer,y)},
                                 {urbanStreetPoint(b,inner,y),urbanStreetPoint(b,outer,y)}});
@@ -765,10 +766,10 @@ namespace
         for(std::size_t i=1;i<stations.size();++i){auto a=stations[i-1],b=stations[i];Vec3 mid=(a.p+b.p)*.5f;
             for(float side:{-1.0f,1.0f}){if(side<0&&ExpoUrbanRoads::atWestJunction(mid,1))continue;
                 if(side<0&&MegaSilkWaySite::atParkingJunction(mid))continue;
-                if(side>0&&MegaSilkWaySite::atJunction(mid))continue;
+                if(side>0&&(MegaSilkWaySite::atJunction(mid)||CityRoadPlan::expoOpening(mid)))continue;
                 quad(v,ix,urbanStreetPoint(a,side*5.52f,.045f),urbanStreetPoint(a,side*5.65f,.045f),
                     urbanStreetPoint(b,side*5.52f,.045f),urbanStreetPoint(b,side*5.65f,.045f));}
-            if(ExpoUrbanRoads::atWestJunction(mid,4)||MegaSilkWaySite::atJunction(mid,4)||MegaSilkWaySite::atParkingJunction(mid,4))continue;
+            if(ExpoUrbanRoads::atWestJunction(mid,4)||MegaSilkWaySite::atJunction(mid,4)||MegaSilkWaySite::atParkingJunction(mid,4)||CityRoadPlan::expoOpening(mid,4))continue;
             float length=b.distance-a.distance;
             int dash=static_cast<int>(std::floor(a.distance/9));
             for(;dash*9.0f<b.distance;++dash)

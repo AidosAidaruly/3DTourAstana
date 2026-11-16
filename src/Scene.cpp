@@ -7,6 +7,19 @@
 
 namespace
 {
+    struct BoulevardSection
+    {
+        float nearZ;
+        float farZ;
+    };
+
+    // The outer Khan Shatyr road occupies z = -280..-288 on the boulevard axis.
+    constexpr std::array<BoulevardSection, 5> boulevardSections{{
+        {-90, -150}, {-160, -220}, {-230, -280},
+        {-288, -290}, {-300, -340}
+    }};
+    constexpr std::array<float, 3> boulevardNodeZ{{-155, -225, -295}};
+
     struct PavingRectangle
     {
         float minX;
@@ -60,13 +73,14 @@ namespace
 
     // Five-meter inner sidewalks and four-meter outer sidewalks leave room
     // for later planting without occupying the entrance forecourt.
-    constexpr std::array<PavingRectangle, 11> abuDhabiSidewalks{{
+    constexpr std::array<PavingRectangle, 12> abuDhabiSidewalks{{
         {-195.0f, -68.0f, 38.0f, 43.0f},
         {-195.0f, -68.0f, 170.0f, 175.0f},
         {-195.0f, -190.0f, 43.0f, 170.0f},
         {-73.0f, -68.0f, 43.0f, 50.0f},
         {-73.0f, -68.0f, 60.0f, 170.0f},
-        {-209.0f, -205.0f, 28.0f, 185.0f},
+        {-209.0f, -205.0f, 44.0f, 110.0f},
+        {-209.0f, -205.0f, 134.0f, 185.0f},
         {-58.0f, -54.0f, 28.0f, 50.0f},
         {-58.0f, -54.0f, 60.0f, 185.0f},
         // Local Northern Lights driveway mouth; all street alignments stay fixed.
@@ -77,9 +91,10 @@ namespace
 
     // Curbs sit inside the asphalt edges. The two east curbs open at the
     // marked pedestrian crossing, and no curb runs across a vehicle junction.
-    constexpr std::array<PavingRectangle, 12> abuDhabiRoadCurbs{{
+    constexpr std::array<PavingRectangle, 13> abuDhabiRoadCurbs{{
         // A 6-meter curb opening at z = 162..168 serves the side parking court.
-        {-205.0f, -204.7f, 38.0f, 162.0f},
+        {-205.0f, -204.7f, 38.0f, 110.0f},
+        {-205.0f, -204.7f, 134.0f, 162.0f},
         {-205.0f, -204.7f, 168.0f, 175.0f},
         {-195.3f, -195.0f, 43.0f, 170.0f},
         {-68.0f, -67.7f, 43.0f, 50.0f},
@@ -209,7 +224,10 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
         shader.uniformLocation("abuDhabiSecondaryFacadeMode");
     abuDhabiGlassMaterialLocation =
         shader.uniformLocation("abuDhabiGlassMaterial");
+    khanCanopyLocation = shader.uniformLocation("khanCanopy");
+    khanCableLocation = shader.uniformLocation("khanCable");
     talanFacadeLocation = shader.uniformLocation("talanFacadeMode");
+    khanTowerFacadeLocation = shader.uniformLocation("khanTowerFacade");
     useGrassLocation = shader.uniformLocation("useGrass");
     useAsphaltLocation = shader.uniformLocation("useAsphalt");
     akOrdaStoneLocation = shader.uniformLocation("akOrdaStone");
@@ -225,6 +243,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     esilSurfaceLocation = shader.uniformLocation("esilSurface");
     astanaArenaFacadeLocation = shader.uniformLocation("astanaArenaFacade");
     northernLightsFacadeLocation = shader.uniformLocation("northernLightsFacade");
+    premiumResidenceBrickLocation = shader.uniformLocation("premiumResidenceBrick");
     useTextureLocation = shader.uniformLocation("useTexture");
     plazaTextureLocation = shader.uniformLocation("plazaTexture");
     textureRepeatLocation = shader.uniformLocation("textureRepeat");
@@ -250,7 +269,10 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1i(abuDhabiFacadeLocation, GL_FALSE);
     glUniform1i(abuDhabiSecondaryFacadeLocation, 0);
     glUniform1i(abuDhabiGlassMaterialLocation, GL_FALSE);
+    glUniform1i(khanCanopyLocation, GL_FALSE);
+    glUniform1i(khanCableLocation, GL_FALSE);
     glUniform1i(talanFacadeLocation, 0);
+    glUniform1i(khanTowerFacadeLocation, GL_FALSE);
     glUniform1i(useGrassLocation, GL_FALSE);
     glUniform1i(useAsphaltLocation, GL_FALSE);
     glUniform1i(akOrdaStoneLocation, GL_FALSE);
@@ -265,6 +287,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1i(esilSurfaceLocation, 0);
     glUniform1i(astanaArenaFacadeLocation, 0);
     glUniform1i(northernLightsFacadeLocation, 0);
+    glUniform1i(premiumResidenceBrickLocation, GL_FALSE);
     glUniform1i(useTextureLocation, GL_FALSE);
     glUniform3f(lightDirectionLocation, lightDirection.x, lightDirection.y, lightDirection.z);
     glUniform1f(ambientStrengthLocation, ambientStrength);
@@ -293,17 +316,23 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
                          useGrassLocation, useTextureLocation, textureRepeatLocation, plazaTexture);
     expoPremiumResidence.render(modelLocation, objectColorLocation, shaftGlassLocation,
                                 useGrassLocation, useTextureLocation, textureRepeatLocation, plazaTexture);
+    cityPremiumResidence.render(view,projection,modelLocation,objectColorLocation,shaftGlassLocation,
+                                premiumResidenceBrickLocation,useGrassLocation,useTextureLocation,textureRepeatLocation,plazaTexture);
+    cityResidentialDistricts.render(view,projection,modelLocation,objectColorLocation,shaftGlassLocation,
+                                   premiumResidenceBrickLocation,useGrassLocation,useTextureLocation,textureRepeatLocation,plazaTexture);
     megaSilkWay.render(modelLocation, objectColorLocation, useTextureLocation,
                        textureRepeatLocation, useAsphaltLocation, plazaTexture);
     parkedVehicles.render(view,projection,lightDirection,ambientStrength,diffuseStrength);
+    backgroundResidential.render(view,projection,lightDirection,ambientStrength,diffuseStrength);
     botanicalGarden.renderRoads(modelLocation, objectColorLocation,
                                useTextureLocation, useGrassLocation,
                                useAsphaltLocation, textureRepeatLocation, plazaTexture);
+    cityRoadNetwork.render(modelLocation,objectColorLocation,useObjectColorLocation,
+                           useAsphaltLocation,useGrassLocation);
     botanicalGarden.render(modelLocation, objectColorLocation,
                            useObjectColorLocation, useGrassLocation,
                            useTextureLocation, textureRepeatLocation,
                            botanicalLakeLocation, plazaTexture);
-
 
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, plazaModel.data());
     glUniform1i(useObjectColorLocation, GL_TRUE);
@@ -348,6 +377,95 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     mesh.drawCeremonialCourt();
     glUniform1i(useTextureLocation, GL_FALSE);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    // A long stone taper meets the old walkway at z = 75; the 24-meter
+    // avenue continues from z = 100 to the approved court edge at z = 220.
+    glBindTexture(GL_TEXTURE_2D, plazaTexture);
+    glUniform1i(useTextureLocation, GL_TRUE);
+    glUniform3f(objectColorLocation, 0.87f, 0.86f, 0.83f);
+    glUniform2f(textureRepeatLocation, 1.0f, 1.0f);
+    Mat4 avenueTransition = modelMatrix({0, 0, 0}, 0, {1, 1, 1});
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, avenueTransition.data());
+    mesh.drawAkOrdaAvenueTransition();
+
+    Mat4 avenue = modelMatrix({0, 0.035f, 160}, 0, {24, 0.07f, 120});
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, avenue.data());
+    glUniform2f(textureRepeatLocation, 2.0f, 10.0f);
+    mesh.drawCube();
+
+    // The western side path links a small vehicle drop-off to the avenue.
+    Mat4 dropOffPath = modelMatrix({-24, 0.035f, 205}, 0,
+                                    {24, 0.07f, 6});
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, dropOffPath.data());
+    glUniform2f(textureRepeatLocation, 2.0f, 0.5f);
+    mesh.drawCube();
+    glUniform1i(useTextureLocation, GL_FALSE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glUniform3f(objectColorLocation, 0.77f, 0.77f, 0.74f);
+    for (float side : {-1.0f, 1.0f})
+    {
+        float x = side * 12.18f;
+        if (side < 0)
+        {
+            for (int section = 0; section < 2; ++section)
+            {
+                float startZ = section == 0 ? 100.0f : 208.0f;
+                float endZ = section == 0 ? 202.0f : 220.0f;
+                Mat4 border = modelMatrix({x, 0.065f,
+                                           (startZ + endZ) * 0.5f},
+                                          0, {0.30f, 0.13f, endZ - startZ});
+                glUniformMatrix4fv(modelLocation, 1, GL_FALSE, border.data());
+                mesh.drawCube();
+            }
+        }
+        else
+        {
+            Mat4 border = modelMatrix({x, 0.065f, 160}, 0,
+                                       {0.30f, 0.13f, 120});
+            glUniformMatrix4fv(modelLocation, 1, GL_FALSE, border.data());
+            mesh.drawCube();
+        }
+    }
+
+    // Two low entrance markers frame the first paved widening, without an arch.
+    struct PillarSection
+    {
+        float centerY;
+        float width;
+        float height;
+    };
+    constexpr std::array<PillarSection, 3> pillarSections{{
+        {0.18f, 1.9f, 0.36f},
+        {1.55f, 1.15f, 2.4f},
+        {2.85f, 1.65f, 0.22f}
+    }};
+
+    for (float side : {-1.0f, 1.0f})
+    {
+        float x = side * 16.0f;
+        for (const PillarSection& part : pillarSections)
+        {
+            Mat4 pillar = modelMatrix({x, part.centerY, 105}, 0,
+                                      {part.width, part.height, part.width});
+            glUniformMatrix4fv(modelLocation, 1, GL_FALSE, pillar.data());
+            glUniform3f(objectColorLocation, 0.88f, 0.87f, 0.83f);
+            mesh.drawCube();
+        }
+    }
+
+    // Trimmed shrubs repeat beyond the tree rows, clear of the side drop-off.
+    glUniform3f(objectColorLocation, 0.29f, 0.44f, 0.27f);
+    for (float z : {122.0f, 142.0f, 162.0f, 182.0f, 214.0f})
+    {
+        for (float side : {-1.0f, 1.0f})
+        {
+            Mat4 shrub = modelMatrix({side * 34.0f, 0.41f, z}, 0,
+                                     {0.55f, 0.40f, 0.55f});
+            glUniformMatrix4fv(modelLocation, 1, GL_FALSE, shrub.data());
+            mesh.drawSphere();
+        }
+    }
 
     // Flat stone inlays mark a broad clear central axis through the court.
     glUniform3f(objectColorLocation, 0.77f, 0.76f, 0.73f);
@@ -713,6 +831,13 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
         drawAbuDhabiRectangle(road, 0.04f);
     }
 
+    // The curved branch meets the existing street edge at x = -58,
+    // z = 175..185, then widens into a small drop-off. Its top stays at 0.04.
+    Mat4 accessRoadModel = modelMatrix({0, 0, 0}, 0, {1, 1, 1});
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, accessRoadModel.data());
+    mesh.drawAkOrdaAccessRoad();
+    drawAbuDhabiRectangle({-52, -36, 202, 208}, 0.04f);
+
     drawAbuDhabiRectangle(abuDhabiCrossing, 0.065f);
     glUniform1i(useAsphaltLocation, GL_FALSE);
 
@@ -738,6 +863,8 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
                 continue;
             }
 
+            // Keep the new residential connector's existing-street T clear.
+            if(centerX==-200.0f&&z+6>108.0f&&z<136.0f)continue;
             drawAbuDhabiRectangle({centerX - 0.075f, centerX + 0.075f,
                                     z, z + 6.0f}, 0.046f);
         }
@@ -775,10 +902,17 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
         drawAbuDhabiRectangle(curb, 0.12f);
     }
 
+    // The curb follows the bend, ending at the paved pedestrian exit.
+    glUniform3f(objectColorLocation, 0.77f, 0.77f, 0.74f);
+    glUniformMatrix4fv(modelLocation, 1, GL_FALSE, accessRoadModel.data());
+    mesh.drawAkOrdaAccessCurbs();
+    drawAbuDhabiRectangle({-52, -38, 207.85f, 208.15f}, 0.12f);
+    drawAbuDhabiRectangle({-52.15f, -51.85f, 202, 208}, 0.12f);
+
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, walkwayModel.data());
     glUniform3fv(objectColorLocation, 1, walkwayColor);
     glBindTexture(GL_TEXTURE_2D, walkwayTexture);
-    glUniform2f(textureRepeatLocation, 1.5f, 7.5f);
+    glUniform2f(textureRepeatLocation, 1.5f, 45.0f / 8.0f);
     glUniform1i(useTextureLocation, GL_TRUE);
     mesh.drawCube();
 
@@ -789,7 +923,63 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, talanApproachModel.data());
     glUniform2f(textureRepeatLocation, 49.0f / 8.0f, 1.0f);
     mesh.drawCube();
+
+    // The boulevard pauses at the outer road, then resumes beyond its crossing.
+    for (const BoulevardSection& section : boulevardSections)
+    {
+        float length = section.nearZ - section.farZ;
+        float centerZ = (section.nearZ + section.farZ) * 0.5f;
+        Mat4 paving = modelMatrix({0, 0, centerZ}, 0, {12, 0.1f, length});
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, paving.data());
+        glUniform2f(textureRepeatLocation, 12.0f / 8.0f, length / 8.0f);
+        mesh.drawCube();
+    }
+
+    glBindTexture(GL_TEXTURE_2D, plazaTexture);
+    glUniform3f(objectColorLocation, 0.72f, 0.73f, 0.70f);
+    glUniform2f(textureRepeatLocation, 36.0f / 12.0f, 10.0f / 12.0f);
+
+    for (float centerZ : boulevardNodeZ)
+    {
+        Mat4 node = modelMatrix({0, 0, centerZ}, 0, {36, 0.1f, 10});
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, node.data());
+        mesh.drawCube();
+    }
+
     glUniform1i(useTextureLocation, GL_FALSE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Curved district lawns replace the final rectangular pair by Khan Shatyr.
+    glUniform1i(useGrassLocation, GL_TRUE);
+    glUniform3f(objectColorLocation, 0.35f, 0.48f, 0.33f);
+
+    for (const BoulevardSection& section : boulevardSections)
+    {
+        if (section.nearZ <= -288.0f)
+        {
+            continue;
+        }
+
+        float length = section.nearZ - section.farZ;
+        float centerZ = (section.nearZ + section.farZ) * 0.5f;
+
+        for (float side : {-1.0f, 1.0f})
+        {
+            Mat4 lawn = modelMatrix({side * 13.0f, 0, centerZ}, 0, {14, 0.08f, length});
+            glUniformMatrix4fv(modelLocation, 1, GL_FALSE, lawn.data());
+            mesh.drawCube();
+        }
+    }
+
+    glUniform1i(useGrassLocation, GL_FALSE);
+
+    // The circular lawn and road sit beneath Khan Shatyr's raised entrance approach.
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, plazaTexture);
+    glUniform2f(textureRepeatLocation, 1.0f, 1.0f);
+    khanDistrict.render(
+        modelLocation, objectColorLocation, useGrassLocation, useTextureLocation
+    );
     glBindTexture(GL_TEXTURE_2D, 0);
 
     baiterek.render(
@@ -806,6 +996,21 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
         shaftGlassLocation, abuDhabiFacadeLocation,
         abuDhabiSecondaryFacadeLocation, abuDhabiGlassMaterialLocation
     );
+    glUniform1i(shaftGlassLocation, GL_FALSE);
+    glBindTexture(GL_TEXTURE_2D, walkwayTexture);
+    glUniform2f(textureRepeatLocation, 1.0f, 1.0f);
+    khanShatyr.render(
+        modelLocation, objectColorLocation, khanCanopyLocation, khanCableLocation,
+        shaftGlassLocation, useGrassLocation, useTextureLocation
+    );
+    glBindTexture(GL_TEXTURE_2D, 0);
+    khanDistrictTowers.render(
+        modelLocation, objectColorLocation, khanTowerFacadeLocation
+    );
+    khanDistrictLandscaping.render(
+        mesh, modelLocation, objectColorLocation, useGrassLocation
+    );
+    khanDistrictFurniture.render(mesh, modelLocation, objectColorLocation);
     glUniform1i(useTextureLocation, GL_FALSE);
     abuDhabiLandscaping.render(
         mesh, modelLocation, objectColorLocation, useGrassLocation
@@ -813,12 +1018,16 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     abuDhabiFurniture.render(
         mesh, modelLocation, objectColorLocation, useAsphaltLocation
     );
-
     glUniform1i(useTextureLocation, GL_FALSE);
     akOrda.render(mesh, modelLocation, objectColorLocation,
                   akOrdaStoneLocation, akOrdaRoofLocation);
 
     for (const Tree& tree : trees)
+    {
+        tree.render(mesh, modelLocation, objectColorLocation);
+    }
+
+    for (const Tree& tree : akOrdaAvenueTrees)
     {
         tree.render(mesh, modelLocation, objectColorLocation);
     }
@@ -829,6 +1038,11 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     }
 
     for (const StreetLight& streetLight : akOrdaApproachLights)
+    {
+        streetLight.render(mesh, modelLocation, objectColorLocation);
+    }
+
+    for (const StreetLight& streetLight : akOrdaAvenueLights)
     {
         streetLight.render(mesh, modelLocation, objectColorLocation);
     }

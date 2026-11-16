@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
@@ -65,6 +65,12 @@
     <ClCompile Include="src\AtyrauCanopy.cpp" />
     <ClCompile Include="src\AstanaArena.cpp" />
     <ClCompile Include="src\NorthernLights.cpp" />
+    <ClCompile Include="src\CityRoadNetwork.cpp" />
+    <ClCompile Include="src\CityPremiumResidence.cpp" />
+    <ClCompile Include="src\CityResidentialDistricts.cpp" />
+    <ClCompile Include="src\BackgroundResidential.cpp" />
+    <ClCompile Include="src\SecondaryStreets.cpp" />
+    <ClCompile Include="src\CentralDistrictStreets.cpp" />
     <ClCompile Include="src\AstanaArenaSeats.cpp" />
     <ClCompile Include="src\ExpoCanopy.cpp" />
     <ClCompile Include="src\NurAlem.cpp" />
@@ -75,6 +81,11 @@
     <ClCompile Include="src\ParkedVehicles.cpp" />
     <ClCompile Include="src\StreetLight.cpp" />
     <ClCompile Include="src\TalanTowers.cpp" />
+    <ClCompile Include="src\KhanDistrict.cpp" />
+    <ClCompile Include="src\KhanDistrictFurniture.cpp" />
+    <ClCompile Include="src\KhanDistrictLandscaping.cpp" />
+    <ClCompile Include="src\KhanDistrictTowers.cpp" />
+    <ClCompile Include="src\KhanShatyr.cpp" />
     <ClCompile Include="src\Tree.cpp" />
     <ClCompile Include="src\Building.cpp" />
     <ClCompile Include="src\Baiterek.cpp" />
@@ -100,7 +111,20 @@
     <ClInclude Include="src\AtyrauCanopy.h" />
     <ClInclude Include="src\AstanaArena.h" />
     <ClInclude Include="src\NorthernLights.h" />
+    <ClInclude Include="src\CityRoadNetwork.h" />
+    <ClInclude Include="src\CityPremiumResidence.h" />
+    <ClInclude Include="src\CityResidentialDistricts.h" />
+    <ClInclude Include="src\BackgroundResidential.h" />
+    <ClInclude Include="src\BackgroundResidentialPlan.h" />
+    <ClInclude Include="src\BackgroundCityExpansionPlan.h" />
+    <ClInclude Include="src\MediumResidenceGeometry.h" />
+    <ClInclude Include="src\SecondaryStreets.h" />
+    <ClInclude Include="src\CentralDistrictStreets.h" />
+    <ClInclude Include="src\CentralDistrictPlan.h" />
     <ClInclude Include="src\NorthernLightsSite.h" />
+    <ClInclude Include="src\CityRoadPlan.h" />
+    <ClInclude Include="src\PremiumResidenceGeometry.h" />
+    <ClInclude Include="src\SecondaryStreetPlan.h" />
     <ClInclude Include="src\AstanaArenaParking.h" />
     <ClInclude Include="src\AstanaArenaLandscape.h" />
     <ClInclude Include="src\AstanaArenaSeats.h" />
@@ -115,6 +139,11 @@
     <ClInclude Include="src\ParkedVehicles.h" />
     <ClInclude Include="src\StreetLight.h" />
     <ClInclude Include="src\TalanTowers.h" />
+    <ClInclude Include="src\KhanDistrict.h" />
+    <ClInclude Include="src\KhanDistrictFurniture.h" />
+    <ClInclude Include="src\KhanDistrictLandscaping.h" />
+    <ClInclude Include="src\KhanDistrictTowers.h" />
+    <ClInclude Include="src\KhanShatyr.h" />
     <ClInclude Include="src\Tree.h" />
     <ClInclude Include="src\Building.h" />
     <ClInclude Include="src\Baiterek.h" />

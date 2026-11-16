@@ -6,6 +6,8 @@
 #endif
 #include <Windows.h>
 #include "BotanicalGarden.h"
+#include "CityRoadPlan.h"
+#include "SecondaryStreetPlan.h"
 #include "ExpoRoadConnection.h"
 #include "AstanaArenaParking.h"
 #include "Tree.h"
@@ -1445,6 +1447,30 @@ BotanicalGarden::BotanicalGarden()
     auto roadBox = [&vertices, &indices](float x0, float x1, float z0, float z1,
                                          float bottom, float top)
     {
+        auto original=CityRoadPlan::rectangle(x0,x1,z0,z1);
+        if(top>.0401f)
+        {
+            std::vector<CityRoadPlan::Polygon> pieces;
+            for(auto p:CityRoadPlan::clipExisting(original)){auto clipped=SecondaryStreetPlan::districtCuts(std::move(p));pieces.insert(pieces.end(),clipped.begin(),clipped.end());}
+            double remaining=0;
+            for(const auto& piece:pieces)remaining+=std::abs(CityRoadPlan::area(piece));
+            if(std::abs(remaining-std::abs(CityRoadPlan::area(original)))>.00001)
+            {
+                auto local=[](Vec3 p,float y){return Vec3{center.x-p.x,y,center.z-p.z};};
+                auto triangle=[&](Vec3 a,Vec3 b,Vec3 c,Vec3 n){if(dot(cross(b-a,c-a),n)<0)std::swap(b,c);
+                    GLuint first=appendVertex(vertices,a,n);appendVertex(vertices,b,n);appendVertex(vertices,c,n);
+                    indices.insert(indices.end(),{first,first+1,first+2});};
+                for(auto piece:pieces)
+                {
+                    for(std::size_t i=1;i+1<piece.size();++i){triangle(local(piece[0],top),local(piece[i],top),local(piece[i+1],top),{0,1,0});
+                        triangle(local(piece[0],bottom),local(piece[i],bottom),local(piece[i+1],bottom),{0,-1,0});}
+                    for(std::size_t i=0;i<piece.size();++i){auto a=piece[i],b=piece[(i+1)%piece.size()];
+                        Vec3 n=normalize(Vec3{a.z-b.z,0,b.x-a.x});
+                        appendFace(vertices,indices,local(a,bottom),local(b,bottom),local(a,top),local(b,top),n);}
+                }
+                return;
+            }
+        }
         appendBox(vertices, indices, center.x-x1, center.x-x0, bottom, top,
                   center.z-z1, center.z-z0);
     };
@@ -1532,7 +1558,7 @@ BotanicalGarden::BotanicalGarden()
     for (float x=-481; x+3<=-259; x+=6)
     {
         if (x+3>-375 && x<-365) continue;
-        roadPaint(x,x+3,11.925f,12.075f);
+        if(x+3<=-472.5f||x>=-447.5f)roadPaint(x,x+3,11.925f,12.075f);
         if(x+3<=AstanaArenaParking::openingWest||x>=AstanaArenaParking::openingEast)
             roadPaint(x,x+3,-260.075f,-259.925f);
     }
@@ -1540,7 +1566,8 @@ BotanicalGarden::BotanicalGarden()
     {
         if(z+3<=ExpoRoadConnection::southEnd-2||z>=ExpoRoadConnection::northEnd+2)
             roadPaint(-490.075f,-489.925f,z,z+3);
-        roadPaint(-250.075f,-249.925f,z,z+3);
+        if(z+3<=-242||z>=-218) // New southern boulevard's local T-mouth.
+            roadPaint(-250.075f,-249.925f,z,z+3);
     }
     for (int stripe=0; stripe<8; ++stripe)
     {

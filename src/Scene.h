@@ -1,11 +1,15 @@
 #pragma once
 
-#include "AbuDhabiFurniture.h"
-#include "AbuDhabiLandscaping.h"
 #include "AbuDhabiPlaza.h"
+#include "AbuDhabiLandscaping.h"
+#include "AbuDhabiFurniture.h"
 #include "AkOrda.h"
 #include "AstanaArena.h"
 #include "NorthernLights.h"
+#include "CityRoadNetwork.h"
+#include "CityPremiumResidence.h"
+#include "CityResidentialDistricts.h"
+#include "BackgroundResidential.h"
 #include "Baiterek.h"
 #include "Bench.h"
 #include "BotanicalGarden.h"
@@ -19,6 +23,11 @@
 #include "MegaSilkWay.h"
 #include "ParkedVehicles.h"
 #include "Building.h"
+#include "KhanDistrict.h"
+#include "KhanDistrictFurniture.h"
+#include "KhanDistrictLandscaping.h"
+#include "KhanDistrictTowers.h"
+#include "KhanShatyr.h"
 #include "Math3D.h"
 #include "Mesh.h"
 #include "Shader.h"
@@ -32,6 +41,9 @@
 class Scene
 {
 public:
+    static constexpr Vec3 baiterekPosition{0, 0, 0};
+    static constexpr Vec3 talanTowersPosition{85, 0, -65};
+    static constexpr Vec3 khanShatyrPosition{0, 0, -420};
     static constexpr Vec3 akOrdaPosition{0, 0, 370};
 
     explicit Scene(const std::filesystem::path& shaderDirectory);
@@ -41,6 +53,7 @@ public:
 private:
     Shader shader;
     Mesh mesh;
+    CityRoadNetwork cityRoadNetwork;
     EsilRiver esilRiver;
     EsilEmbankment esilEmbankment;
     AtyrauBridge atyrauBridge;
@@ -51,6 +64,9 @@ private:
     ExpoDistrict expoDistrict;
     ExpoResidence expoResidence;
     ExpoPremiumResidence expoPremiumResidence;
+    CityPremiumResidence cityPremiumResidence;
+    CityResidentialDistricts cityResidentialDistricts;
+    BackgroundResidential backgroundResidential;
     MegaSilkWay megaSilkWay;
     ParkedVehicles parkedVehicles;
     // Two rows of four trees, clear of the walkway and plaza.
@@ -63,6 +79,14 @@ private:
         Tree({14, 0, 54}),
         Tree({14, 0, 68}),
         Tree({14, 0, 82})
+    }};
+
+    // Two matched rows frame the new palace approach without closing its axis.
+    std::array<Tree, 8> akOrdaAvenueTrees{{
+        Tree({-28, 0, 120}, 0.9f), Tree({28, 0, 120}, 0.9f),
+        Tree({-28, 0, 145}, 0.9f), Tree({28, 0, 145}, 0.9f),
+        Tree({-28, 0, 170}, 0.9f), Tree({28, 0, 170}, 0.9f),
+        Tree({-28, 0, 190}, 0.9f), Tree({28, 0, 190}, 0.9f)
     }};
 
     // Four lights frame the gardens; four mark the walkway entrances.
@@ -85,6 +109,15 @@ private:
         StreetLight({54, 0.07f, 275}, 90, 0.72f),
         StreetLight({-54, 0.07f, 305}, -90, 0.72f),
         StreetLight({54, 0.07f, 305}, 90, 0.72f)
+    }};
+
+    std::array<StreetLight, 6> akOrdaAvenueLights{{
+        StreetLight({-18, 0, 130}, -90, 0.78f),
+        StreetLight({18, 0, 130}, 90, 0.78f),
+        StreetLight({-18, 0, 160}, -90, 0.78f),
+        StreetLight({18, 0, 160}, 90, 0.78f),
+        StreetLight({-18, 0, 190}, -90, 0.78f),
+        StreetLight({18, 0, 190}, 90, 0.78f)
     }};
 
     // Four seats border the curved lawns; two frame the camera-side approach.
@@ -111,11 +144,16 @@ private:
     NorthernLights northernLights{{-100,0,-36},90.0f};
 
     // The shared podium stays clear of the existing buildings and park.
-    TalanTowers talanTowers{{85, 0, -65}};
+    TalanTowers talanTowers{talanTowersPosition};
     AbuDhabiPlaza abuDhabiPlaza{{-125, 0, 125}};
     AbuDhabiLandscaping abuDhabiLandscaping;
     AbuDhabiFurniture abuDhabiFurniture;
     AkOrda akOrda{akOrdaPosition};
+    KhanDistrict khanDistrict{khanShatyrPosition};
+    KhanShatyr khanShatyr{khanShatyrPosition};
+    KhanDistrictTowers khanDistrictTowers;
+    KhanDistrictLandscaping khanDistrictLandscaping{khanShatyrPosition};
+    KhanDistrictFurniture khanDistrictFurniture{khanShatyrPosition};
 
     GLint viewLocation = -1;
     GLint projectionLocation = -1;
@@ -136,7 +174,10 @@ private:
     GLint abuDhabiFacadeLocation = -1;
     GLint abuDhabiSecondaryFacadeLocation = -1;
     GLint abuDhabiGlassMaterialLocation = -1;
+    GLint khanCanopyLocation = -1;
+    GLint khanCableLocation = -1;
     GLint talanFacadeLocation = -1;
+    GLint khanTowerFacadeLocation = -1;
     GLint useGrassLocation = -1;
     GLint useAsphaltLocation = -1;
     GLint akOrdaStoneLocation = -1;
@@ -152,6 +193,7 @@ private:
     GLint esilSurfaceLocation = -1;
     GLint astanaArenaFacadeLocation = -1;
     GLint northernLightsFacadeLocation = -1;
+    GLint premiumResidenceBrickLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
     Vec3 lightDirection{-0.5f, -1.0f, -0.3f};
@@ -171,8 +213,8 @@ private:
     Mat4 circularBorderModel = modelMatrix({0, 0.11f, 0}, 0, {1, 1, 1});
 
     // Meet the plaza at z = 30 without overlapping its top surface.
-    // The 12 x 60 meter walkway has the same top height: y = 0.05.
-    Mat4 walkwayModel = modelMatrix({0, 0, 60}, 0, {12, 0.1f, 60});
+    // The final 25 meters widen into the Ak Orda avenue; this section ends at z = 75.
+    Mat4 walkwayModel = modelMatrix({0, 0, 52.5f}, 0, {12, 0.1f, 45});
 
     // Match the existing walkway and meet the opposite plaza edge at z = -30.
     Mat4 oppositeWalkwayModel = modelMatrix({0, 0, -60}, 0, {12, 0.1f, 60});
@@ -180,4 +222,7 @@ private:
     // The gallery has its own paved forecourt and a branch from the city path.
     Mat4 talanForecourtModel = modelMatrix({85, 0, -41.5f}, 0, {60, 0.1f, 27});
     Mat4 talanApproachModel = modelMatrix({30.5f, 0, -50}, 0, {49, 0.1f, 8});
+
+    // Khan Shatyr and its six towers occupy roughly x = -112..112, z = -531..-331.
+    // Keep x = -100..100, z = 220..325 clear for the future ceremonial garden.
 };

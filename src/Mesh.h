@@ -26,6 +26,9 @@ public:
     void drawFountainJets() const;
     void drawUnitCapsule() const;
     void drawCeremonialCourt() const;
+    void drawAkOrdaAvenueTransition() const;
+    void drawAkOrdaAccessRoad() const;
+    void drawAkOrdaAccessCurbs() const;
     void drawParterreStems() const;
     void drawParterreFlowers(int colorIndex) const;
     void drawApproachFlowerStems() const;
@@ -53,6 +56,12 @@ private:
     GLsizei unitCapsuleVertexCount = 0;
     GLint ceremonialCourtFirstVertex = 0;
     GLsizei ceremonialCourtVertexCount = 0;
+    GLint akOrdaAvenueTransitionFirstVertex = 0;
+    GLsizei akOrdaAvenueTransitionVertexCount = 0;
+    GLint akOrdaAccessRoadFirstVertex = 0;
+    GLsizei akOrdaAccessRoadVertexCount = 0;
+    GLint akOrdaAccessCurbFirstVertex = 0;
+    GLsizei akOrdaAccessCurbVertexCount = 0;
     GLint parterreStemFirstVertex = 0;
     GLsizei parterreStemVertexCount = 0;
     std::array<GLint, 4> parterreFlowerFirstVertex{};

@@ -488,6 +488,166 @@ Mesh::Mesh()
     ceremonialCourtVertexCount = static_cast<GLsizei>(litVertices.size() / 8) -
         ceremonialCourtFirstVertex;
 
+    // Widen the Baiterek-side walkway smoothly into the Ak Orda avenue.
+    // A 25-meter taper meets the walkway at y = 0.05 and the avenue at 0.07.
+    akOrdaAvenueTransitionFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+    auto appendAvenueVertex = [&litVertices](Vec3 point, Vec3 normal)
+    {
+        litVertices.insert(litVertices.end(), {
+            point.x, point.y, point.z, normal.x, normal.y, normal.z,
+            point.x / 12.0f, (point.z - 100.0f) / 12.0f
+        });
+    };
+    auto appendAvenueTriangle = [&appendAvenueVertex](
+        Vec3 a, Vec3 b, Vec3 c, Vec3 normal)
+    {
+        appendAvenueVertex(a, normal);
+        appendAvenueVertex(b, normal);
+        appendAvenueVertex(c, normal);
+    };
+
+    Vec3 frontLeft{-6, 0.05f, 75};
+    Vec3 frontRight{6, 0.05f, 75};
+    Vec3 backLeft{-12, 0.07f, 100};
+    Vec3 backRight{12, 0.07f, 100};
+    appendAvenueTriangle(frontLeft, backLeft, backRight, {0, 1, 0});
+    appendAvenueTriangle(frontLeft, backRight, frontRight, {0, 1, 0});
+    appendAvenueTriangle({-6, 0, 75}, frontLeft, backLeft, {-1, 0, 0});
+    appendAvenueTriangle({-6, 0, 75}, backLeft, {-12, 0, 100}, {-1, 0, 0});
+    appendAvenueTriangle(frontRight, {6, 0, 75}, {12, 0, 100}, {1, 0, 0});
+    appendAvenueTriangle(frontRight, {12, 0, 100}, backRight, {1, 0, 0});
+    akOrdaAvenueTransitionVertexCount =
+        static_cast<GLsizei>(litVertices.size() / 8) -
+        akOrdaAvenueTransitionFirstVertex;
+
+    // A single swept asphalt surface turns gradually from the existing
+    // east-west street into the palace's western drop-off.
+    struct AccessSection
+    {
+        Vec3 center;
+        Vec3 sideways;
+        float halfWidth;
+    };
+    constexpr int accessSegments = 16;
+    std::array<AccessSection, accessSegments + 1> accessSections{};
+    const Vec3 start{-58, 0, 180};
+    const Vec3 firstControl{-49, 0, 180};
+    const Vec3 secondControl{-44, 0, 188};
+    const Vec3 accessEnd{-44, 0, 202};
+
+    for (int segment = 0; segment <= accessSegments; ++segment)
+    {
+        float t = static_cast<float>(segment) / accessSegments;
+        float inverse = 1.0f - t;
+        Vec3 center = start * (inverse * inverse * inverse)
+            + firstControl * (3.0f * inverse * inverse * t)
+            + secondControl * (3.0f * inverse * t * t)
+            + accessEnd * (t * t * t);
+        Vec3 tangent = (firstControl - start) * (inverse * inverse)
+            + (secondControl - firstControl) * (2.0f * inverse * t)
+            + (accessEnd - secondControl) * (t * t);
+        Vec3 forward = normalize(tangent);
+        accessSections[segment] = {
+            center, {-forward.z, 0, forward.x}, 5.0f + 3.0f * t * t
+        };
+    }
+
+    auto appendAccessVertex = [&litVertices](Vec3 point, Vec3 normal)
+    {
+        litVertices.insert(litVertices.end(), {
+            point.x, point.y, point.z, normal.x, normal.y, normal.z,
+            point.x / 8.0f, point.z / 8.0f
+        });
+    };
+    auto appendAccessQuad = [&appendAccessVertex](
+        Vec3 a, Vec3 b, Vec3 c, Vec3 d, Vec3 normal)
+    {
+        appendAccessVertex(a, normal);
+        appendAccessVertex(b, normal);
+        appendAccessVertex(c, normal);
+        appendAccessVertex(a, normal);
+        appendAccessVertex(c, normal);
+        appendAccessVertex(d, normal);
+    };
+
+    akOrdaAccessRoadFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+    for (int segment = 0; segment < accessSegments; ++segment)
+    {
+        const AccessSection& a = accessSections[segment];
+        const AccessSection& b = accessSections[segment + 1];
+        Vec3 leftA = a.center + a.sideways * a.halfWidth;
+        Vec3 rightA = a.center - a.sideways * a.halfWidth;
+        Vec3 leftB = b.center + b.sideways * b.halfWidth;
+        Vec3 rightB = b.center - b.sideways * b.halfWidth;
+        leftA.y = rightA.y = leftB.y = rightB.y = 0.04f;
+        appendAccessQuad(leftA, leftB, rightB, rightA, {0, 1, 0});
+
+        Vec3 leftGroundA = leftA;
+        Vec3 leftGroundB = leftB;
+        Vec3 rightGroundA = rightA;
+        Vec3 rightGroundB = rightB;
+        leftGroundA.y = leftGroundB.y = 0;
+        rightGroundA.y = rightGroundB.y = 0;
+        appendAccessQuad(leftGroundA, leftGroundB, leftB, leftA,
+                         a.sideways);
+        appendAccessQuad(rightA, rightB, rightGroundB, rightGroundA,
+                         a.sideways * -1.0f);
+    }
+    akOrdaAccessRoadVertexCount =
+        static_cast<GLsizei>(litVertices.size() / 8) -
+        akOrdaAccessRoadFirstVertex;
+
+    akOrdaAccessCurbFirstVertex = static_cast<GLint>(litVertices.size() / 8);
+    for (int side : {-1, 1})
+    {
+        for (int segment = 0; segment < accessSegments; ++segment)
+        {
+            // The final right-hand opening leads to the paved side path.
+            if (side < 0 && segment >= accessSegments - 2)
+            {
+                continue;
+            }
+
+            const AccessSection& a = accessSections[segment];
+            const AccessSection& b = accessSections[segment + 1];
+            Vec3 innerA = a.center + a.sideways *
+                (side * (a.halfWidth - 0.10f));
+            Vec3 outerA = a.center + a.sideways *
+                (side * (a.halfWidth + 0.20f));
+            Vec3 innerB = b.center + b.sideways *
+                (side * (b.halfWidth - 0.10f));
+            Vec3 outerB = b.center + b.sideways *
+                (side * (b.halfWidth + 0.20f));
+            innerA.y = outerA.y = innerB.y = outerB.y = 0.11f;
+
+            if (side > 0)
+            {
+                appendAccessQuad(outerA, outerB, innerB, innerA,
+                                 {0, 1, 0});
+            }
+            else
+            {
+                appendAccessQuad(innerA, innerB, outerB, outerA,
+                                 {0, 1, 0});
+            }
+
+            Vec3 outerBottomA = outerA;
+            Vec3 outerBottomB = outerB;
+            outerBottomA.y = outerBottomB.y = 0;
+            appendAccessQuad(outerBottomA, outerBottomB, outerB, outerA,
+                             a.sideways * static_cast<float>(side));
+
+            Vec3 innerBottomA = innerA;
+            Vec3 innerBottomB = innerB;
+            innerBottomA.y = innerBottomB.y = 0.04f;
+            appendAccessQuad(innerA, innerB, innerBottomB, innerBottomA,
+                             a.sideways * static_cast<float>(-side));
+        }
+    }
+    akOrdaAccessCurbVertexCount =
+        static_cast<GLsizei>(litVertices.size() / 8) -
+        akOrdaAccessCurbFirstVertex;
+
     // Flower positions are local to one 22 x 54 meter lawn. Both palace beds
     // reuse these batches, so the two parterres have the same mirrored design.
     std::array<std::vector<Vec3>, 4> parterreFlowers;
@@ -858,6 +1018,27 @@ void Mesh::drawCeremonialCourt() const
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLES, ceremonialCourtFirstVertex,
                  ceremonialCourtVertexCount);
+}
+
+void Mesh::drawAkOrdaAvenueTransition() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, akOrdaAvenueTransitionFirstVertex,
+                 akOrdaAvenueTransitionVertexCount);
+}
+
+void Mesh::drawAkOrdaAccessRoad() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, akOrdaAccessRoadFirstVertex,
+                 akOrdaAccessRoadVertexCount);
+}
+
+void Mesh::drawAkOrdaAccessCurbs() const
+{
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, akOrdaAccessCurbFirstVertex,
+                 akOrdaAccessCurbVertexCount);
 }
 
 void Mesh::drawParterreStems() const

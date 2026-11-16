@@ -23,6 +23,8 @@ uniform bool nurAlemPodiumGlass;
 uniform bool abuDhabiFacade;
 uniform int abuDhabiSecondaryFacadeMode;
 uniform bool abuDhabiGlassMaterial;
+uniform bool khanCanopy;
+uniform bool khanCable;
 uniform bool useGrass;
 uniform bool useAsphalt;
 uniform bool akOrdaStone;
@@ -39,6 +41,7 @@ uniform int esilSurface; // 0 city, 1 bank, 2 water, 3 promenade, 4 coping, 5 ra
 uniform int astanaArenaFacade; // 0 unchanged, 1 silver, 2 glazing, 3 cassettes, 4 collar, 5 entry stone, 6 pitch, 7 bowl
 uniform int northernLightsFacade; // 0 existing opaque, 1 turquoise tower, 2 tinted podium, 3 paving, 4 light metal, 5 dark profiles
 uniform int talanFacadeMode;
+uniform bool khanTowerFacade;
 
 vec3 shadeGoldenPanels(vec3 normal, vec3 toLight, float lambert)
 {
@@ -188,6 +191,32 @@ vec3 shadeNurAlemGlass(vec3 baseColor, vec3 normal, vec3 toLight, float lambert)
     vec3 silver = vec3(0.30, 0.36, 0.39) * (0.55 + 0.45 * lambert);
     silver = mix(silver, environment, 0.12 + 0.14 * fresnel);
     return mix(color, silver, mullion * 0.86);
+}
+
+vec3 shadeKhanCanopy(vec3 normal, vec3 toLight, float lambert)
+{
+    vec3 viewDirection = normalize(worldViewDirection);
+    vec3 halfDirection = normalize(toLight + viewDirection);
+    vec3 reflection = reflect(-viewDirection, normal);
+    float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 4.0);
+
+    // The mostly white membrane picks up only a little sky color.
+    vec3 sky = mix(
+        vec3(0.89, 0.91, 0.91), vec3(0.82, 0.90, 0.94),
+        smoothstep(-0.2, 0.6, reflection.y)
+    );
+    vec3 color = objectColor * (0.82 + 0.18 * lambert);
+    color = mix(color, sky, 0.05 + 0.06 * fresnel);
+    color += vec3(1.0) *
+        pow(max(dot(normal, halfDirection), 0.0), 24.0) * 0.035;
+
+    // Narrow radial seams suggest tall membrane strips, without a dark grid.
+    float strip = uv.x * 32.0;
+    float edge = min(fract(strip), 1.0 - fract(strip));
+    float smoothing = max(fwidth(strip) * 0.75, 0.003);
+    float seam = 1.0 - smoothstep(0.008, 0.008 + smoothing, edge);
+    float variation = 1.0 + 0.01 * sin(floor(strip) * 1.37);
+    return color * variation * (1.0 - 0.025 * seam);
 }
 
 // River materials are local to the new static meshes; all existing city
@@ -904,6 +933,19 @@ void main()
         color = mix(color, silver, framing * detailVisibility);
     }
 
+    if (khanCanopy)
+    {
+        color = shadeKhanCanopy(normal, toLight, lambert);
+    }
+
+    if (khanCable)
+    {
+        vec3 viewDirection = normalize(worldViewDirection);
+        vec3 halfDirection = normalize(toLight + viewDirection);
+        float glint = pow(max(dot(normal, halfDirection), 0.0), 48.0);
+        color = objectColor * (0.92 + 0.08 * lambert) + vec3(0.06) * glint;
+    }
+
     if (talanFacadeMode != 0)
     {
         // Tower U follows the rounded perimeter; podium bays follow each flat wall.
@@ -942,6 +984,36 @@ void main()
 
         vec3 frame = vec3(0.78, 0.72, 0.59) * (0.60 + 0.40 * lambert);
         color = mix(color, frame, max(mullion, floorBand) * 0.92);
+    }
+
+    if (khanTowerFacade)
+    {
+        // UV distance follows each chamfered perimeter: 2.25 m bays and 3.4 m floors.
+        vec2 edge = min(fract(uv), 1.0 - fract(uv));
+        vec2 smoothing = max(fwidth(uv) * 0.75, vec2(0.012));
+        float verticalFrame = 1.0 - smoothstep(0.035, 0.035 + smoothing.x, edge.x);
+        float floorBand = 1.0 - smoothstep(0.035, 0.035 + smoothing.y, edge.y);
+        float frameAmount = worldPosition.y >= 3.6 ?
+            max(verticalFrame, floorBand) : 0.0;
+
+        vec2 pane = floor(uv);
+        float variation = 1.0 + 0.025 * sin(pane.x * 1.47 + pane.y * 2.13);
+        vec3 viewDirection = normalize(worldViewDirection);
+        vec3 reflection = reflect(-viewDirection, normal);
+        float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 5.0);
+        vec3 reflectedSky = mix(
+            vec3(0.55, 0.65, 0.72), vec3(0.61, 0.79, 0.91),
+            smoothstep(-0.15, 0.55, reflection.y)
+        );
+        vec3 glass = baseColor * (ambientStrength + diffuseStrength * lambert);
+        color = mix(glass * variation, reflectedSky, 0.30 + 0.24 * fresnel);
+
+        vec3 halfDirection = normalize(toLight + viewDirection);
+        float highlight = pow(max(dot(normal, halfDirection), 0.0), 80.0);
+        color += vec3(0.78, 0.88, 0.96) * highlight * 0.17;
+
+        vec3 silverFrame = vec3(0.82, 0.86, 0.88) * (0.72 + 0.28 * lambert);
+        color = mix(color, silverFrame, frameAmount * 0.94);
     }
 
     if (!useObjectColor)

@@ -72,9 +72,26 @@ int main(int argc, char** argv)
               << "\nOpenGL version: " << glString(GL_VERSION) << std::endl;
 
     Camera camera;
+    constexpr Vec3 baiterek = Scene::baiterekPosition;
+    constexpr Vec3 talan = Scene::talanTowersPosition;
+    constexpr Vec3 khanShatyr = Scene::khanShatyrPosition;
+    constexpr Vec3 akOrda = Scene::akOrdaPosition;
     constexpr Vec3 botanicalGarden = BotanicalGarden::center;
     constexpr Vec3 expo = ExpoDistrict::center;
-    std::array<LandmarkViewpoint, 4> viewpoints{{
+
+    std::array<LandmarkViewpoint, 8> viewpoints{{
+        // 1: Baiterek and its plaza.
+        {GLFW_KEY_1, {baiterek.x, 3.0f, baiterek.z + 65.0f},
+         {baiterek.x, 21.0f, baiterek.z}},
+        // 2: Both Talan towers and the gallery frontage.
+        {GLFW_KEY_2, {talan.x, 3.0f, talan.z + 57.0f},
+         {talan.x, 26.0f, talan.z}},
+        // 3: Khan Shatyr from the main pedestrian approach.
+        {GLFW_KEY_3, {khanShatyr.x, 3.0f, khanShatyr.z + 75.0f},
+         {khanShatyr.x, 26.0f, khanShatyr.z}},
+        // 5: Ak Orda from its ceremonial approach, facing the palace facade.
+        {GLFW_KEY_5, {akOrda.x, 3.0f, akOrda.z - 85.0f},
+         {akOrda.x, 25.0f, akOrda.z}},
         // 6: Just inside the east entrance, looking along the garden axis.
         {GLFW_KEY_6, {botanicalGarden.x + 101.0f, 3.0f, botanicalGarden.z},
          botanicalGarden},
