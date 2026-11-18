@@ -208,6 +208,7 @@ namespace
 Scene::Scene(const std::filesystem::path& shaderDirectory)
     : shader(shaderDirectory)
 {
+    shadowReceiver=SunShadows::receiver(shader.handle());
     viewLocation = shader.uniformLocation("view");
     projectionLocation = shader.uniformLocation("projection");
     modelLocation = shader.uniformLocation("model");
@@ -230,6 +231,7 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     khanTowerFacadeLocation = shader.uniformLocation("khanTowerFacade");
     useGrassLocation = shader.uniformLocation("useGrass");
     useAsphaltLocation = shader.uniformLocation("useAsphalt");
+    genericPavingLocation = shader.uniformLocation("genericPaving");
     akOrdaStoneLocation = shader.uniformLocation("akOrdaStone");
     akOrdaRoofLocation = shader.uniformLocation("akOrdaRoof");
     akOrdaWaterLocation = shader.uniformLocation("akOrdaWater");
@@ -249,6 +251,29 @@ Scene::Scene(const std::filesystem::path& shaderDirectory)
     textureRepeatLocation = shader.uniformLocation("textureRepeat");
     plazaTexture = createPlazaTexture();
     walkwayTexture = createWalkwayTexture();
+    // Reuse authored tree roots; pool shared variants/LOD instances once.
+    botanicalGarden.appendTrees(treeModels);
+    esilEmbankment.appendTrees(treeModels);
+    backgroundResidential.appendTrees(treeModels);
+    abuDhabiLandscaping.appendTrees(treeModels);
+    khanDistrictLandscaping.appendTrees(treeModels);
+    for(const auto& tree:trees)tree.appendTrees(treeModels);
+    for(const auto& tree:akOrdaAvenueTrees)tree.appendTrees(treeModels);
+    treeModels.upload();
+    botanicalGarden.appendGrass(grassDetail);
+    cityResidentialDistricts.appendGrass(grassDetail);
+    grassDetail.upload();
+    // Initialization-only proxy geometry derives from the existing placement data.
+    baiterek.appendShadowProxies(shadowProxies);
+    expoDistrict.appendShadowProxies(shadowProxies);
+    abuDhabiPlaza.appendShadowProxies(shadowProxies);
+    akOrda.appendShadowProxies(shadowProxies);
+    botanicalGarden.appendShadowProxies(shadowProxies);
+    abuDhabiLandscaping.appendShadowProxies(shadowProxies);
+    for(const auto& tree:trees)tree.appendShadowProxies(shadowProxies);
+    for(const auto& tree:akOrdaAvenueTrees)tree.appendShadowProxies(shadowProxies);
+    treeModels.appendShadowProxies(shadowProxies);
+    shadowProxies.upload();
 }
 
 Scene::~Scene()
@@ -259,10 +284,25 @@ Scene::~Scene()
 
 void Scene::render(const Mat4& view, const Mat4& projection, float time) const
 {
+    const SkyAtmosphere::SunBinding daylightBinding(skyAtmosphere);
+    if(sunShadows.prepare(view,lightDirection)){
+        SunShadows::Pass pass(sunShadows);
+        backgroundResidential.renderShadow(sunShadows);
+        northernLights.renderShadow(sunShadows);
+        shadowProxies.render(sunShadows);
+        khanShatyr.renderShadow(sunShadows);
+        astanaArena.renderShadow(sunShadows);
+        talanTowers.renderShadow(mesh,sunShadows);
+        akOrda.renderShadow(sunShadows);
+    }
+    const SunShadows::Binding shadowBinding(sunShadows);
+    const GroundMaterials::Binding groundBinding(groundMaterials);
+    skyAtmosphere.render(view,projection);
     const float plazaColor[3] = {0.80f, 0.80f, 0.78f};
     const float walkwayColor[3] = {0.52f, 0.53f, 0.54f};
 
     shader.use();
+    sunShadows.apply(shadowReceiver);
     glUniform1i(nurAlemFacadeLocation, GL_FALSE);
     glUniform1i(goldenPanelsLocation, GL_FALSE);
     glUniform1i(shaftGlassLocation, GL_FALSE);
@@ -275,6 +315,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glUniform1i(khanTowerFacadeLocation, GL_FALSE);
     glUniform1i(useGrassLocation, GL_FALSE);
     glUniform1i(useAsphaltLocation, GL_FALSE);
+    glUniform1i(genericPavingLocation, GL_FALSE);
     glUniform1i(akOrdaStoneLocation, GL_FALSE);
     glUniform1i(akOrdaRoofLocation, GL_FALSE);
     glUniform1i(akOrdaWaterLocation, GL_FALSE);
@@ -323,12 +364,12 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     megaSilkWay.render(modelLocation, objectColorLocation, useTextureLocation,
                        textureRepeatLocation, useAsphaltLocation, plazaTexture);
     parkedVehicles.render(view,projection,lightDirection,ambientStrength,diffuseStrength);
-    backgroundResidential.render(view,projection,lightDirection,ambientStrength,diffuseStrength);
+    backgroundResidential.render(view,projection,lightDirection,ambientStrength,diffuseStrength,&sunShadows);
     botanicalGarden.renderRoads(modelLocation, objectColorLocation,
                                useTextureLocation, useGrassLocation,
                                useAsphaltLocation, textureRepeatLocation, plazaTexture);
     cityRoadNetwork.render(modelLocation,objectColorLocation,useObjectColorLocation,
-                           useAsphaltLocation,useGrassLocation);
+                           useAsphaltLocation,useGrassLocation,genericPavingLocation);
     botanicalGarden.render(modelLocation, objectColorLocation,
                            useObjectColorLocation, useGrassLocation,
                            useTextureLocation, textureRepeatLocation,
@@ -463,7 +504,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
             Mat4 shrub = modelMatrix({side * 34.0f, 0.41f, z}, 0,
                                      {0.55f, 0.40f, 0.55f});
             glUniformMatrix4fv(modelLocation, 1, GL_FALSE, shrub.data());
-            mesh.drawSphere();
+            mesh.drawLowShrub();
         }
     }
 
@@ -572,7 +613,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
                 0, {0.42f, 0.28f, 0.50f}
             );
             glUniformMatrix4fv(modelLocation, 1, GL_FALSE, shrub.data());
-            mesh.drawSphere();
+            mesh.drawLowShrub();
         }
     }
 
@@ -886,6 +927,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     glBindTexture(GL_TEXTURE_2D, plazaTexture);
     glUniform1i(useTextureLocation, GL_TRUE);
 
+    glUniform1i(genericPavingLocation, GL_TRUE);
     for (const PavingRectangle& sidewalk : abuDhabiSidewalks)
     {
         float width = sidewalk.maxX - sidewalk.minX;
@@ -895,6 +937,7 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     }
 
     glUniform1i(useTextureLocation, GL_FALSE);
+    glUniform1i(genericPavingLocation, GL_FALSE);
     glUniform3f(objectColorLocation, 0.74f, 0.75f, 0.73f);
 
     for (const PavingRectangle& curb : abuDhabiRoadCurbs)
@@ -1022,15 +1065,8 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
     akOrda.render(mesh, modelLocation, objectColorLocation,
                   akOrdaStoneLocation, akOrdaRoofLocation);
 
-    for (const Tree& tree : trees)
-    {
-        tree.render(mesh, modelLocation, objectColorLocation);
-    }
-
-    for (const Tree& tree : akOrdaAvenueTrees)
-    {
-        tree.render(mesh, modelLocation, objectColorLocation);
-    }
+    treeModels.render(view,projection,lightDirection,ambientStrength,diffuseStrength,sunShadows);
+    grassDetail.render(view,projection,lightDirection,ambientStrength,diffuseStrength,sunShadows);
 
     for (const StreetLight& streetLight : streetLights)
     {
@@ -1072,4 +1108,10 @@ void Scene::render(const Mat4& view, const Mat4& projection, float time) const
         else if(volume.kind==1)greenhouse();
         else megaSilkWay.renderGlass(modelLocation,objectColorLocation,megaAtriumGlassLocation,view);
     }
+}
+
+float Scene::sunAzimuthDegrees()const
+{
+    float angle=std::atan2(-lightDirection.z,-lightDirection.x)*180/pi;
+    return angle<0?angle+360:angle;
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "Math3D.h"
+#include "TreeModels.h"
 #include <glad/glad.h>
 #include <array>
 #include <cstddef>
@@ -17,8 +18,10 @@ public:
     EsilEmbankment& operator=(const EsilEmbankment&)=delete;
     void render(GLint modelLocation,GLint objectColorLocation,
                 GLint useObjectColorLocation,GLint surfaceLocation) const;
+    void appendTrees(TreeModels& models)const{models.append(treeSites);}
 private:
     struct Range {std::size_t first=0;GLsizei count=0;};
     std::array<Range,15> ranges{};
     GLuint vao=0,vbo=0,ebo=0;
+    std::vector<TreeModels::Planting> treeSites;
 };

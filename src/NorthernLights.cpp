@@ -1,4 +1,5 @@
 #include "NorthernLights.h"
+#include "SunShadows.h"
 #include "Tree.h"
 #include "NorthernLightsSite.h"
 #include <algorithm>
@@ -447,4 +448,14 @@ void NorthernLights::render(GLint modelLocation,GLint colorLocation,GLint object
         glDrawElements(GL_TRIANGLES,ranges[i].count,GL_UNSIGNED_INT,reinterpret_cast<void*>(ranges[i].first*sizeof(GLuint)));
     }
     glBindVertexArray(0);glUniform1i(facadeLocation,0);glUniform1i(objectLocation,GL_FALSE);
+}
+
+void NorthernLights::renderShadow(SunShadows& shadows)const
+{
+    // Conservative bounds include the rotated podium, towers and crowns.
+    if(!shadows.intersects({model[12],model[13]+74,model[14]},{36,75,56}))return;
+    shadows.instanced(false);glUniformMatrix4fv(shadows.modelLocation(),1,GL_FALSE,model.data());glBindVertexArray(vao);
+    for(int material:{Silver,Metal}){const auto& range=ranges[material];
+        glDrawElements(GL_TRIANGLES,range.count,GL_UNSIGNED_INT,reinterpret_cast<void*>(range.first*sizeof(GLuint)));shadows.record(range.count);}
+    shadows.countCasters(4);
 }

@@ -1,4 +1,5 @@
 #include "ParkedVehicles.h"
+#include "SkyAtmosphere.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -250,8 +251,9 @@ void main(){
  vec3 normal=normalize(worldNormal);
  vec3 toLight=normalize(-lightDirection);
  float lambert=max(dot(normal,toLight),0.0);
- vec3 color=baseColor*(ambientStrength+diffuseStrength*lambert);
- if(glazing>0.5){
+ vec3 color=baseColor*dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength);
+ if(glazing>0.5&&glazing<1.5){
+  color=baseColor*(ambientStrength+diffuseStrength*lambert);
   vec3 viewDirection=normalize(worldViewDirection);
   vec3 reflection=reflect(-viewDirection,normal);
   float fresnel=pow(1.0-max(dot(normal,viewDirection),0.0),5.0);
@@ -261,11 +263,13 @@ void main(){
   color=mix(color,reflectedSky,0.22+0.28*fresnel);
   color+=vec3(0.70,0.83,0.91)*highlight*0.35;
  }
+ else if(glazing>1.5)color+=dayMetalHighlight(normal,toLight,worldViewDirection,.45,.075);
  fragColor=vec4(color,1.0);
 })GLSL";
     GLuint compile(GLenum type,const char* text)
     {
-        GLuint shader=glCreateShader(type);glShaderSource(shader,1,&text,nullptr);glCompileShader(shader);GLint ok=0;
+        std::string atmosphere=type==GL_FRAGMENT_SHADER?DayAtmosphere::fragmentSource(text):text;const char* ptr=atmosphere.c_str();
+        GLuint shader=glCreateShader(type);glShaderSource(shader,1,&ptr,nullptr);glCompileShader(shader);GLint ok=0;
         glGetShaderiv(shader,GL_COMPILE_STATUS,&ok);
         if(!ok){char message[4096]{};glGetShaderInfoLog(shader,4096,nullptr,message);glDeleteShader(shader);
             throw std::runtime_error(std::string("Vehicle shader: ")+message);}
@@ -322,7 +326,7 @@ ParkedVehicles::ParkedVehicles()
                     if(!std::isfinite(dot(p,p))||std::abs(dot(n,n)-1)>.0002f)throw std::runtime_error("Invalid vehicle vertex");
                     minimum={std::min(minimum.x,p.x),std::min(minimum.y,p.y),std::min(minimum.z,p.z)};
                     maximum={std::max(maximum.x,p.x),std::max(maximum.y,p.y),std::max(maximum.z,p.z)};
-                    vertices.push_back({p,n,colors[m],m==CarWhite?1.0f:0.0f,m==CarGlass?1.0f:0.0f});}
+                    vertices.push_back({p,n,colors[m],m==CarWhite?1.0f:0.0f,m==CarGlass?1.0f:m==Steel?2.0f:0.0f});}
                 for(GLuint i:batch.indices){if(i>=batch.vertices.size()/8)throw std::runtime_error("Invalid vehicle index");indices.push_back(first+i);}}
             for(std::size_t i=0;i<indices.size();i+=3){const auto& a=vertices[indices[i]];const auto& b=vertices[indices[i+1]];const auto& c=vertices[indices[i+2]];
                 Vec3 area=cross(b.p-a.p,c.p-a.p);if(dot(area,area)<1e-12f||dot(area,a.n+b.n+c.n)<=0)throw std::runtime_error("Invalid vehicle winding/triangle");}

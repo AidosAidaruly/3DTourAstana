@@ -21,6 +21,7 @@ public:
 
     void render(const Mesh& mesh, GLint modelLocation,
                 GLint objectColorLocation, GLint useGrassLocation) const;
+    void appendTrees(TreeModels& models)const;
 
 private:
     struct IndexRange

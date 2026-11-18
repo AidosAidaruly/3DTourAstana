@@ -1,4 +1,5 @@
 #include "Baiterek.h"
+#include "ShadowProxies.h"
 
 #include <array>
 #include <cmath>
@@ -405,4 +406,12 @@ void Baiterek::render(
     glUniform1i(goldenPanelsLocation, GL_TRUE);
     mesh.drawSphere();
     glUniform1i(goldenPanelsLocation, GL_FALSE);
+}
+
+void Baiterek::appendShadowProxies(ShadowProxies& proxies)const
+{
+    proxies.beginLandmark();
+    for(const auto* parts:{&structureModels,&braceModels,&crownStructureModels,&crownBraceModels,&platformModels,&tipModels})
+        for(const auto& m:*parts)proxies.add(ShadowProxies::Box,m);
+    proxies.add(ShadowProxies::Ellipsoid,sphereModel,true); // opaque gilded sphere; shaft glass omitted
 }

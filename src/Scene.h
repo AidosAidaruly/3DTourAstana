@@ -31,6 +31,9 @@
 #include "Math3D.h"
 #include "Mesh.h"
 #include "Shader.h"
+#include "SkyAtmosphere.h"
+#include "GroundMaterials.h"
+#include "ShadowProxies.h"
 #include "StreetLight.h"
 #include "TalanTowers.h"
 #include "Tree.h"
@@ -49,9 +52,33 @@ public:
     explicit Scene(const std::filesystem::path& shaderDirectory);
     ~Scene();
     void render(const Mat4& view, const Mat4& projection, float time) const;
+    void updateShadowToggle(bool down,bool focused){sunShadows.updateToggle(down,focused);}
+    void updateSkyToggle(bool down,bool focused){skyAtmosphere.updateToggle(down,focused);}
+    void setSkyMode(SkyAtmosphere::Mode mode){skyAtmosphere.setMode(mode);}
+    SkyAtmosphere::Mode skyMode()const{return skyAtmosphere.currentMode();}
+    const char* skyModeName()const{return skyAtmosphere.modeName();}
+    void setSunOffset(float degrees){if(skyAtmosphere.setSunOffset(degrees)){lightDirection=skyAtmosphere.lightRayDirection();sunShadows.invalidate();}}
+    float sunOffsetDegrees()const{return skyAtmosphere.sunOffsetDegrees();}
+    Vec3 sunlightRay()const{return lightDirection;}
+    float sunAzimuthDegrees()const;
+    void setShadowsEnabled(bool enabled){sunShadows.setEnabled(enabled);}
+    bool shadowsEnabled()const{return sunShadows.enabled();}
+    void invalidateShadows(){sunShadows.invalidate();}
+    const SunShadows::Statistics& shadowStatistics()const{return sunShadows.statistics();}
+    const ShadowProxies::Statistics& shadowProxyStatistics()const{return shadowProxies.statistics();}
+    const TreeModels::Statistics& treeStatistics()const{return treeModels.statistics();}
+    const GrassDetail::Statistics& grassStatistics()const{return grassDetail.statistics();}
+    void setGrassEnabled(bool value){grassDetail.setEnabled(value);}
 
 private:
     Shader shader;
+    SkyAtmosphere skyAtmosphere;
+    GroundMaterials groundMaterials;
+    mutable SunShadows sunShadows;
+    ShadowProxies shadowProxies;
+    TreeModels treeModels;
+    GrassDetail grassDetail;
+    SunShadows::Receiver shadowReceiver{};
     Mesh mesh;
     CityRoadNetwork cityRoadNetwork;
     EsilRiver esilRiver;
@@ -180,6 +207,7 @@ private:
     GLint khanTowerFacadeLocation = -1;
     GLint useGrassLocation = -1;
     GLint useAsphaltLocation = -1;
+    GLint genericPavingLocation = -1;
     GLint akOrdaStoneLocation = -1;
     GLint akOrdaRoofLocation = -1;
     GLint akOrdaWaterLocation = -1;
@@ -196,9 +224,9 @@ private:
     GLint premiumResidenceBrickLocation = -1;
 
     // Daylight direction points from the sun toward the scene.
-    Vec3 lightDirection{-0.5f, -1.0f, -0.3f};
-    float ambientStrength = 0.35f;
-    float diffuseStrength = 0.65f;
+    Vec3 lightDirection=DayAtmosphere::sunRayDirection;
+    float ambientStrength = 0.42f;
+    float diffuseStrength = 0.60f;
 
     // World scale: 1 unit = 1 meter; Baiterek's reference point stays at the origin.
     // EsilRiver owns the continuous X=-1500..800, Z=-1000..950 ground

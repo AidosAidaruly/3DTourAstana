@@ -15,6 +15,7 @@ public:
 
     void use() const;
     GLint uniformLocation(const char* name) const;
+    GLuint handle() const { return program; }
 
 private:
     GLuint program = 0;

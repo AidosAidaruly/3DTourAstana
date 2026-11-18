@@ -1,4 +1,6 @@
 #include "KhanDistrictLandscaping.h"
+#include "TreeModels.h"
+#include "LowVegetationGeometry.h"
 
 #include "KhanDistrict.h"
 
@@ -9,7 +11,6 @@
 namespace
 {
     constexpr int bedSegments = 16;
-    constexpr int shrubSegments = 8;
 
     struct PlantingBed
     {
@@ -111,59 +112,20 @@ namespace
             outward * 157.0f + tangent * left + Vec3{0, 0.055f, 0});
     }
 
+    void appendLowPlant(std::vector<float>& vertices,std::vector<GLuint>& indices,Vec3 p,Vec3 r,int kind=0,float phase=0)
+    {
+        auto v=[&](Vec3 x,Vec3 n){return appendVertex(vertices,x,n);};
+        auto t=[&](GLuint a,GLuint b,GLuint c){indices.insert(indices.end(),{a,b,c});};
+        if(kind==0)LowVegetationGeometry::shrub(p,r,v,t);
+        else if(kind==1)LowVegetationGeometry::head(p,r,v,t);
+        else if(kind==2)LowVegetationGeometry::stem(p,r.y,r,v,t);
+        else if(kind==3)LowVegetationGeometry::grass(p,r,phase,v,t);
+        else LowVegetationGeometry::hedge(p,r,v,t);
+    }
     void appendShrub(std::vector<float>& vertices, std::vector<GLuint>& indices,
                      Vec3 center, float radius, float height)
     {
-        constexpr std::array<float, 3> radiusFractions{{1.0f, 0.78f, 0.30f}};
-        constexpr std::array<float, 3> heightFractions{{0.08f, 0.55f, 0.88f}};
-
-        for (int ring = 0; ring < 2; ++ring)
-        {
-            for (int segment = 0; segment < shrubSegments; ++segment)
-            {
-                float start = 2.0f * pi * segment / shrubSegments;
-                float end = 2.0f * pi * (segment + 1) / shrubSegments;
-                auto point = [&](int level, float angle)
-                {
-                    return center + Vec3{
-                        radius * radiusFractions[level] * std::cos(angle),
-                        height * heightFractions[level],
-                        radius * radiusFractions[level] * std::sin(angle)
-                    };
-                };
-
-                Vec3 a = point(ring, start);
-                Vec3 b = point(ring + 1, start);
-                Vec3 c = point(ring + 1, end);
-                Vec3 d = point(ring, end);
-                Vec3 normal = normalize(cross(b - a, c - a));
-                GLuint first = appendVertex(vertices, a, normal);
-                appendVertex(vertices, b, normal);
-                appendVertex(vertices, c, normal);
-                appendVertex(vertices, d, normal);
-                indices.insert(indices.end(), {
-                    first, first + 1, first + 2,
-                    first, first + 2, first + 3
-                });
-            }
-        }
-
-        Vec3 top = center + Vec3{0, height, 0};
-
-        for (int segment = 0; segment < shrubSegments; ++segment)
-        {
-            float start = 2.0f * pi * segment / shrubSegments;
-            float end = 2.0f * pi * (segment + 1) / shrubSegments;
-            Vec3 a = center + Vec3{
-                radius * 0.30f * std::cos(start), height * 0.88f,
-                radius * 0.30f * std::sin(start)
-            };
-            Vec3 b = center + Vec3{
-                radius * 0.30f * std::cos(end), height * 0.88f,
-                radius * 0.30f * std::sin(end)
-            };
-            appendUpTriangle(vertices, indices, top, a, b);
-        }
+        appendLowPlant(vertices,indices,center+Vec3{0,height*.5f,0},{radius,height*.5f,radius});
     }
 }
 
@@ -315,7 +277,7 @@ void KhanDistrictLandscaping::drawRange(const IndexRange& range, Vec3 color,
                    reinterpret_cast<void*>(range.firstIndex * sizeof(GLuint)));
 }
 
-void KhanDistrictLandscaping::render(const Mesh& mesh, GLint modelLocation,
+void KhanDistrictLandscaping::render(const Mesh&, GLint modelLocation,
                                      GLint objectColorLocation,
                                      GLint useGrassLocation) const
 {
@@ -331,8 +293,8 @@ void KhanDistrictLandscaping::render(const Mesh& mesh, GLint modelLocation,
 
     glBindVertexArray(0);
 
-    for (const Tree& tree : trees)
-    {
-        tree.render(mesh, modelLocation, objectColorLocation);
-    }
+    // Trees are submitted by the shared instanced pool in Scene.
 }
+
+void KhanDistrictLandscaping::appendTrees(TreeModels& models)const
+{for(const auto& tree:trees)tree.appendTrees(models);}

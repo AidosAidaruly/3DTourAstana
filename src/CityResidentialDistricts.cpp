@@ -3,6 +3,7 @@
 #include "MediumResidenceGeometry.h"
 #include "SecondaryStreetPlan.h"
 #include "Bench.h"
+#include "LowVegetationGeometry.h"
 #include <stdexcept>
 
 namespace
@@ -22,6 +23,7 @@ namespace
             auto add=[&](Vec3 x,Vec3 y,Vec3 z){Vec3 n=cross(y-x,z-x);if(dot(n,n)<1e-10f)return;n=normalize(n);if(dot(n,(x+y+z)*(1.0f/3)-center)<0)n=n*-1;triangle(b,x,y,z,n);};
             add(p,q,r);add(q,t,r);}
     }
+    void lowShrub(Batch& b,Vec3 p,Vec3 r){LowVegetationGeometry::shrub(p,r,[&](Vec3 q,Vec3 n){GLuint i=GLuint(b.vertices.size());b.vertices.push_back({q,n,q.x/12,q.z/12});return i;},[&](GLuint a,GLuint c,GLuint d){b.indices.insert(b.indices.end(),{a,c,d});});}
     struct Site {Plan court;std::array<Vec3,4> trees;};
     const std::array<Site,5> sites{{
         {{-608,-548,-673,-634},{{{-604,0,-645},{-552,0,-641},{-604,0,-670.5f},{-551,0,-669}}}},
@@ -74,7 +76,7 @@ namespace
             box(a[Wood],{tree.x,1.65f,tree.z},{.24f,3.3f,.24f});
             crown(a[Leaves],{tree.x,4.1f,tree.z},{1.65f,2.3f,1.65f});
             crown(a[Leaves],{tree.x-.8f,3.6f,tree.z+.25f},{1.2f,1.55f,1.2f});++stats.trees;
-            for(float dz:{-1.8f,1.8f}){crown(a[Leaves],{tree.x,.42f,tree.z+dz},{.65f,.40f,.62f});++stats.shrubs;}
+            for(float dz:{-1.8f,1.8f}){lowShrub(a[Leaves],{tree.x,.42f,tree.z+dz},{.65f,.40f,.62f});++stats.shrubs;}
         }
         // Four shared-component benches per plot, beside the cross path.
         // G1 is compact: seats occupy its unobstructed southern approach.
@@ -110,6 +112,15 @@ CityResidentialDistricts::CityResidentialDistricts()
         groups[g].extent={(parcel.x1-parcel.x0)*.5f,height*.5f,(northEnds[g]-southEnds[g])*.5f};
         for(int lod=0;lod<3;++lod){Batches a;for(auto s:buildings)if(s.parcel==plots[g])residence(a,s,lod);append(a,groups[g].levels[lod],lod);}
         Batches a;site(a,g,stats);append(a,groups[g].site,-1);
+        // Capture the actual planar-subdivision lawn, not the parcel rectangle.
+        // Paths, aprons and foundations are absent from this material range.
+        auto& lawn=grassSites[g];lawn.color=colors[Lawn];
+        for(int m=0;m<MaterialCount;++m){const auto& b=a[m];for(std::size_t i=0;i<b.indices.size();i+=3){
+            GrassDetail::Triangle t{b.vertices[b.indices[i]].p,b.vertices[b.indices[i+1]].p,b.vertices[b.indices[i+2]].p};
+            if(m==Lawn)lawn.lawn.push_back(t);
+            else if(std::min({t.a.y,t.b.y,t.c.y})<.95f)lawn.blocked.push_back(t);
+        }}
+        for(auto tree:sites[g].trees)lawn.planting.push_back({tree,.7f});
     }
     for(auto v:mesh.vertices){if(!std::isfinite(v.p.x)||!std::isfinite(v.p.y)||!std::isfinite(v.p.z)||!std::isfinite(v.u)||!std::isfinite(v.v)||!std::isfinite(v.n.x)||!std::isfinite(v.n.y)||!std::isfinite(v.n.z)||std::abs(dot(v.n,v.n)-1)>.002f)throw std::runtime_error("Invalid apartment vertex");
         bool within=false;for(int g=0;g<5;++g){auto p=SecondaryStreetPlan::parcels[plots[g]];auto court=sites[g].court;float cx=(court.x0+court.x1)*.5f;

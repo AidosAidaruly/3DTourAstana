@@ -3,6 +3,7 @@
 #include "Tree.h"
 #include "Bench.h"
 #include "StreetLight.h"
+#include "LowVegetationGeometry.h"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -192,20 +193,15 @@ namespace
             Vec3 normal=normalize(Vec3{c.z-a.z,0,a.x-c.x});if(dot(normal,(a+c)*.5f-p)<0)normal=normal*-1;
             face(b,rim(i,0),rim(i+1,0),a,c,normal);}
     }
+    void lowPlant(Batch& b,Vec3 p,Vec3 r,int kind=0,float phase=0)
+    {
+        auto v=[&](Vec3 x,Vec3 n){return vertex(b,x,n);};auto t=[&](GLuint a,GLuint c,GLuint d){triangle(b,a,c,d);};
+        if(kind==0)LowVegetationGeometry::shrub(p,r,v,t);else if(kind==1)LowVegetationGeometry::head(p,r,v,t);
+        else if(kind==2)LowVegetationGeometry::stem(p,r.y,r,v,t);else if(kind==3)LowVegetationGeometry::grass(p,r,phase,v,t);else LowVegetationGeometry::hedge(p,r,v,t);
+    }
     void grassTuft(Batch& b,Vec3 p,float scale,float phase)
     {
-        // Five shallow folded, solid leaves; no alpha cards or double-sided
-        // coplanar polygons. Their roots are embedded in the low soil mound.
-        for(int i=0;i<5;++i){float angle=phase+2*pi*i/5;Vec3 out{std::cos(angle),0,std::sin(angle)},side{-out.z,0,out.x};
-            Vec3 centers[]={p,p+out*(.13f*scale)+Vec3{0,.48f*scale,0},p+out*(.37f*scale)+Vec3{0,.39f*scale,0}};
-            constexpr float widths[]={.025f,.038f,.004f};
-            auto corner=[&](int row,int k){return centers[row]+side*(widths[row]*scale*(k==0||k==3?-1.0f:1.0f))+out*(k<2?-.003f:.003f);};
-            for(int row=1;row<3;++row)for(int k=0;k<4;++k){int next=(k+1)%4;
-                Vec3 a=corner(row-1,k),c=corner(row,k),d=corner(row-1,next),e=corner(row,next);
-                Vec3 normal=normalize(cross(c-a,d-a));face(b,a,c,d,e,normal);}
-            for(int row:{0,2}){Vec3 normal=normalize(row?centers[2]-centers[1]:centers[0]-centers[1]);
-                face(b,corner(row,0),corner(row,1),corner(row,3),corner(row,2),normal);}
-        }
+        lowPlant(b,p,{.37f*scale,.48f*scale,.37f*scale},3,phase);
     }
     bool landscapeClear(Vec3 p,float rx,float rz,int side)
     {
@@ -221,7 +217,7 @@ namespace
             if(distance+rx>inner-1.0f&&distance-rx<outer+1.0f)return false;}
         return true;
     }
-    void landscaping(Batches& b,std::vector<PlantBounds>& planting)
+    void landscaping(Batches& b,std::vector<PlantBounds>& planting,std::vector<TreeModels::Planting>& treeSites)
     {
         struct TreeSite {Vec3 p;float radius;bool slender;int side;};
         std::vector<TreeSite> trees;trees.reserve(200);
@@ -233,12 +229,7 @@ namespace
             if(!landscapeClear(p,radius,radius,side))return;
             for(const auto& other:trees){Vec3 d=p-other.p;float clearance=radius+other.radius+.8f;
                 if(dot(d,d)<clearance*clearance)return;}
-            stem(b[Earth],p,p+Vec3{0,4.4f*vertical,0},.19f*scale,.105f*scale);
-            for(int branch:{0,1}){Vec3 off=Tree::foliageOffsets[branch];
-                stem(b[Earth],p+Vec3{0,3.05f*vertical,0},p+Vec3{off.x*horizontal,off.y*vertical,off.z*horizontal},.065f*scale,.030f*scale);}
-            for(std::size_t k=0;k<Tree::foliageOffsets.size();++k){Vec3 off=Tree::foliageOffsets[k];float r=Tree::foliageRadii[k];
-                if(trees.size()%2)off.x=-off.x;
-                foliage(b[(trees.size()+k)%3?LeavesDark:LeavesLight],p+Vec3{off.x*horizontal,off.y*vertical,off.z*horizontal},{r*horizontal,r*vertical,r*horizontal});}
+            treeSites.push_back(TreeModels::planting(p,2.9f*horizontal,8.0f*vertical,slender?1:0,true));
             trees.push_back({p,radius,slender,side});};
         auto bed=[&](int side,float z,float offset,float rx,float rz){Vec3 p=EsilRiver::upperBankPoint(z,side,offset);
             if(!landscapeClear(p,rx*1.16f,rz*1.16f,side))return;
@@ -247,7 +238,7 @@ namespace
             // Ordered low drifts, inset from the organic soil boundary.
             for(int k=0;k<7;++k){float a=2*pi*k/7;Vec3 s=p+Vec3{rx*.55f*std::cos(a),0,rz*.65f*std::sin(a)};
                 float radius=.42f+.055f*(k%3),height=.30f+.035f*(k%2);
-                foliage(b[shrubs%3?LowPlant:LeavesLight],s+Vec3{0,height,0},{radius,height,radius},8,4);++shrubs;}
+                lowPlant(b[shrubs%3?LowPlant:LeavesLight],s+Vec3{0,height,0},{radius,height,radius});++shrubs;}
             for(int k=0;k<5;++k){float a=2*pi*(k+.3f)/5;Vec3 s=p+Vec3{rx*.38f*std::cos(a),.015f,rz*.40f*std::sin(a)};
                 grassTuft(b[Grass],s,.95f+.10f*(k%3),float(tufts)*.39f);++tufts;}
         };
@@ -402,18 +393,8 @@ namespace
     }
     void flower(Batches& b,Vec3 p,float h,int material,float phase)
     {
-        stem(b[LowPlant],p+Vec3{0,.025f,0},p+Vec3{0,h,0},.008f,.005f,3);
-        for(int leaf=0;leaf<2;++leaf){float a=phase+leaf*pi;Vec3 out{std::cos(a),0,std::sin(a)},side{-out.z,0,out.x};
-            Vec3 root=p+Vec3{0,h*.45f,0},tip=root+out*.10f+Vec3{0,.04f,0};
-            for(int sign:{-1,1}){Vec3 middle=root+out*.05f+side*(sign*.027f);Vec3 normal=normalize(cross(tip-root,middle-root));if(normal.y<0)normal=normal*-1;
-                GLuint i=vertex(b[LowPlant],root,normal);vertex(b[LowPlant],tip,normal);vertex(b[LowPlant],middle,normal);triangle(b[LowPlant],i,i+1,i+2);}}
-        // Closed ten-sided rosette: alternating radii suggest five petals.
-        auto& head=b[material];GLuint topIndex=vertex(head,p+Vec3{0,h+.020f,0},{0,1,0}),bottom=vertex(head,p+Vec3{0,h-.012f,0},{0,-1,0});
-        GLuint first=static_cast<GLuint>(head.vertices.size());
-        for(int faceIndex=0;faceIndex<2;++faceIndex)for(int k=0;k<10;++k){float a=phase+2*pi*k/10,r=k%2?.056f:.10f;
-            Vec3 n=normalize(Vec3{.3f*std::cos(a),faceIndex?-1.0f:1.0f,.3f*std::sin(a)});
-            vertex(head,p+Vec3{r*std::cos(a),h,r*std::sin(a)},n);}
-        for(int k=0;k<10;++k){int next=(k+1)%10;triangle(head,topIndex,first+k,first+next);triangle(head,bottom,first+10+k,first+10+next);}
+        lowPlant(b[LowPlant],p+Vec3{0,.025f,0},{.10f,h-.025f,.10f},2,phase);
+        lowPlant(b[material],p+Vec3{0,h,0},{.10f,.05f,.10f},1,phase);
         foliage(b[FlowerYellow],p+Vec3{0,h+.018f,0},{.017f,.012f,.017f},5,2);
     }
     void publicSpaces(Batches& b,const std::vector<PlantBounds>& planting,const std::vector<PlantBounds>& furniture)
@@ -500,7 +481,7 @@ namespace
             for(int band=0;band<4;++band)for(int k=0;k<counts[band];++k){float a=2*pi*k/counts[band]+.15f*(band%2);
                 Vec3 q=p+Vec3{2.1f*fractions[band]*std::cos(a),0,4.0f*fractions[band]*std::sin(a)};
                 int color=FlowerRed+(band+gardens)%4;flower(b,q,.28f+.025f*((k+band)%4),color,a);++flowers;}
-            for(int i=0;i<3;++i){Vec3 q=p+Vec3{-side*2.9f,.25f,(i-1)*1.1f};foliage(b[LowPlant],q,{.30f,.25f,.60f},8,4);}
+            for(int i=0;i<3;++i){Vec3 q=p+Vec3{-side*2.9f,.25f,(i-1)*1.1f};lowPlant(b[LowPlant],q,{.30f,.25f,.60f},4);}
             ++hedgeGroups;additions.push_back(bounds);++gardens;
         }
         if(platforms!=4||routes.size()!=8||gardens!=12||flowers!=1056||hedgeGroups!=12)throw std::runtime_error("Esil public-space count mismatch");
@@ -542,7 +523,7 @@ EsilEmbankment::EsilEmbankment()
     }
     for(auto stair:stairs)waterfrontStair(batches,stair);
     std::vector<PlantBounds> planting;planting.reserve(200);
-    landscaping(batches,planting);
+    landscaping(batches,planting,treeSites);
     std::vector<PlantBounds> furniture;furniture.reserve(108);
     furnishings(batches,planting,furniture);
     publicSpaces(batches,planting,furniture);

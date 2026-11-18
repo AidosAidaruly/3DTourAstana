@@ -1,7 +1,9 @@
 #include "Tree.h"
+#include "ShadowProxies.h"
+#include "TreeModels.h"
 
 Tree::Tree(Vec3 position, float scale, float variation)
-    : foliageVariation(variation)
+    : foliageVariation(variation),root(position),treeScale(scale)
 {
     // Apply the same parent position and uniform scale to every local component.
     trunkModel = modelMatrix(
@@ -50,4 +52,14 @@ void Tree::render(
                     color.z * (1.0f + foliageVariation * 0.4f));
         mesh.drawSphere();
     }
+}
+
+void Tree::appendShadowProxies(ShadowProxies& proxies)const
+{
+    proxies.beginVegetation();proxies.add(ShadowProxies::Box,trunkModel);
+    for(const auto& m:foliageModels)proxies.add(ShadowProxies::Ellipsoid,m);
+}
+void Tree::appendTrees(TreeModels& models)const
+{
+    models.add(TreeModels::planting(root,2.9f*treeScale,8.0f*treeScale));
 }

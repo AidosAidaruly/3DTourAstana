@@ -1,0 +1,13 @@
+# Graphics G8A - Fast anti-aliasing and image clarity
+
+FXAA is integrated into the existing G7C fullscreen triangle and RGBA16F scene buffer. **No new framebuffer, attachment, mesh, rendering pass or draw** is added relative to the enabled G7C composite. When grading is OFF but FXAA is ON, that same composite remains active for anti-aliasing alone. Both OFF retain the original direct-render bypass.
+
+Five display-referred scene samples detect luminance contrast. Low-contrast regions exit immediately, preserving smooth sky/ground and faint detail. Accepted edges use a bounded directional FXAA filter: up to four additional bilinear samples, inner/outer candidates with output-luminance bounds checking, and 15% retained center coverage. Span is capped at six texels; thresholds are 0.045 absolute / 0.166 relative. Each selected sample receives the unchanged G7C transform before output-space color blending; final dither follows filtering. There is no second gamma encoding. F7-OFF samples use the legacy clamped display colors. Center/diagonal texels are exact fetches, filtered taps use linear sampling, and clamp-to-edge plus actual `textureSize` handle borders and resizing.
+
+**F8**, previously unused, toggles FXAA independently of F6 shadows and F7 grading. All states appear in the existing title. Geometry, sky, lighting, materials, G7C settings, shadow resources/caches, culling, LOD and instancing are unchanged. No per-frame mesh or attachment allocation occurs.
+
+Debug x64 and full-scene shader/OpenGL checks passed. Matched OFF/ON views were inspected for a dense residential aerial, residential street, Baiterek, Northern Lights, EXPO/Nur Alem and Astana Arena. Roof diagonals, landmark silhouettes, metal edges and curved road boundaries are cleaner; window grids and markings remain readable. Resize/reuse/minimize checks and all eight F6/F7/F8 combinations passed. A same-context comparison against the original G7C code showed F8-OFF output byte-identical with F7 OFF; F7 ON had only isolated one-step 8-bit rounding differences (at most 166 channel values out of 2,764,800 per frame).
+
+One brief alternating warmed dense-aerial comparison, Intel UHD / Debug 1280x720 / F6+F7 ON: **FXAA OFF 82.17 FPS / 12.170 ms; ON 76.73 FPS / 13.033 ms**, approximately **+0.86 ms**. Short sample, not a guaranteed visible-window frame rate.
+
+Limitations: spatial filtering cannot recover missing subpixel geometry; some very distant high-contrast detail becomes slightly softer. Temporal shimmer was not evaluated or claimed fixed. Changed: `ColorGrading.cpp/.h`, `main.cpp`, `README.md`, and this document. No commit or push; stopped for F5 review.

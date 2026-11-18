@@ -5,6 +5,8 @@
 
 #include <vector>
 
+class ShadowProxies;
+
 class Baiterek
 {
 public:
@@ -18,6 +20,8 @@ public:
         GLint goldenPanelsLocation,
         GLint shaftGlassLocation
     ) const;
+
+    void appendShadowProxies(ShadowProxies& proxies)const;
 
 private:
     std::vector<Mat4> structureModels;

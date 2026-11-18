@@ -8,6 +8,10 @@
 #include <vector>
 
 // Symmetric Ak Orda palace with a classical front facade and blue dome.
+class ShadowProxies;
+
+class SunShadows;
+
 class AkOrda
 {
 public:
@@ -20,6 +24,10 @@ public:
     void render(const Mesh& mesh, GLint modelLocation,
                 GLint objectColorLocation, GLint stoneMaterialLocation,
                 GLint roofMaterialLocation) const;
+
+    void appendShadowProxies(ShadowProxies& proxies)const;
+
+    void renderShadow(SunShadows& shadows)const;
 
 private:
     struct Part

@@ -1,4 +1,5 @@
 #include "KhanShatyr.h"
+#include "SunShadows.h"
 
 #include <algorithm>
 #include <array>
@@ -998,4 +999,14 @@ void KhanShatyr::render(
     drawRange(handleRange, {0.86f, 0.88f, 0.87f}, objectColorLocation);
     drawRange(fasciaRange, {0.78f, 0.81f, 0.81f}, objectColorLocation);
     glBindVertexArray(0);
+}
+
+void KhanShatyr::renderShadow(SunShadows& shadows)const
+{
+    if(!shadows.intersects({model[12],model[13]+25,model[14]},{40,28,32}))return;
+    shadows.instanced(false);glUniformMatrix4fv(shadows.modelLocation(),1,GL_FALSE,model.data());glBindVertexArray(vao);
+    // The existing membrane renders opaque. Skip detailed cables, facade/door glass and site paving.
+    for(const auto* r:{&plinthRange,&wallRange,&upperWallRange,&roofTransitionRange,&canopyRange,&rimRange,&mastRange})if(r->count){
+        glDrawElements(GL_TRIANGLES,r->count,GL_UNSIGNED_INT,reinterpret_cast<void*>(r->firstIndex*sizeof(GLuint)));shadows.record(r->count);}
+    shadows.countCasters(1);
 }

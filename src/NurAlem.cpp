@@ -1,4 +1,5 @@
 #include "NurAlem.h"
+#include "ShadowProxies.h"
 
 #include <cmath>
 #include <algorithm>
@@ -458,4 +459,13 @@ void NurAlem::render(GLint modelLocation, GLint colorLocation, GLint glassLocati
     glUniform3f(colorLocation,.74f,.79f,.82f); draw(diagonalSteel);
     glUniform3f(colorLocation,.66f,.73f,.77f); draw(latticeTies);
     glBindVertexArray(0);
+}
+
+void NurAlem::appendShadowProxies(ShadowProxies& proxies)const
+{
+    proxies.beginLandmark();
+    // The museum sphere/podium use opaque reflective facade shaders. EXPO's
+    // separate blended canopy is never part of these closed silhouette proxies.
+    proxies.add(ShadowProxies::Ellipsoid,ShadowProxies::compose(model,modelMatrix({0,sphereCenterY,0},0,{radius,radius,radius})),true);
+    proxies.add(ShadowProxies::Cylinder,ShadowProxies::compose(model,modelMatrix({0,seatHeight*.5f,0},0,{podiumRadius,seatHeight,podiumRadius})),true);
 }

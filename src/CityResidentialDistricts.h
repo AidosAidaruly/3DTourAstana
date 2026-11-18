@@ -1,5 +1,6 @@
 #pragma once
 #include "Math3D.h"
+#include "GrassDetail.h"
 #include <glad/glad.h>
 #include <array>
 #include <cstddef>
@@ -29,6 +30,7 @@ public:
     void render(const Mat4& view,const Mat4& projection,GLint model,GLint color,GLint glass,GLint brick,
                 GLint grass,GLint texture,GLint repeat,GLuint paving) const;
     const Statistics& statistics()const{return stats;}
+    void appendGrass(GrassDetail& detail)const{for(const auto& site:grassSites)detail.add(site);}
 private:
     static constexpr int materials=12;
     struct Range {std::size_t first=0;GLsizei count=0;};
@@ -40,5 +42,6 @@ private:
     };
     std::array<Group,5> groups{};
     Statistics stats;
+    std::array<GrassDetail::Site,5> grassSites;
     GLuint vao=0,vbo=0,ebo=0;
 };

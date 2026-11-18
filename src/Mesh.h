@@ -17,6 +17,7 @@ public:
     void drawGround() const;
     void drawCube() const;
     void drawSphere() const;
+    void drawLowShrub(int variant=0) const;
     void drawPointedTip() const;
     void drawCircularPlaza() const;
     void drawCircularBorder() const;
@@ -44,6 +45,8 @@ private:
     GLuint vbo = 0;
     GLint sphereFirstVertex = 0;
     GLsizei sphereVertexCount = 0;
+    std::array<GLint,4> lowShrubFirst{};
+    std::array<GLsizei,4> lowShrubCount{};
     GLint tipFirstVertex = 0;
     GLint circularPlazaFirstVertex = 0;
     GLint circularBorderFirstVertex = 0;

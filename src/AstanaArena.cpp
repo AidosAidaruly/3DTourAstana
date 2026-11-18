@@ -1,4 +1,5 @@
 #include "AstanaArena.h"
+#include "SunShadows.h"
 #include "AstanaArenaParking.h"
 #include "AstanaArenaLandscape.h"
 
@@ -1159,4 +1160,17 @@ void AstanaArena::render(GLint modelLocation, GLint colorLocation, GLint objectL
     }
     glBindVertexArray(0); glUniform1i(facadeLocation,0); glUniform1i(asphaltLocation,GL_FALSE);
     glUniform1i(objectLocation, GL_FALSE);
+}
+
+void AstanaArena::renderShadow(SunShadows& shadows)const
+{
+    static const Mat4 model=modelMatrix(center,90,{1,1,1});
+    bool body=shadows.intersects(center+Vec3{0,20,0},{126,22,110});
+    bool planting=shadows.intersects({-445,4,-410},{190,9,145});
+    if(!body&&!planting)return;shadows.instanced(false);glUniformMatrix4fv(shadows.modelLocation(),1,GL_FALSE,model.data());glBindVertexArray(vao);
+    auto draw=[&](int m){const auto& r=ranges[m];if(!r.count)return;glDrawElements(GL_TRIANGLES,r.count,GL_UNSIGNED_INT,reinterpret_cast<void*>(r.first*sizeof(GLuint)));shadows.record(r.count);};
+    // Reuse the existing opaque roof with its real retractable aperture.
+    // No seating, pitch, entrance glazing or parking surfaces.
+    if(body){for(int m:{0,1,3,4,5,6,7,8})draw(m);shadows.countCasters(1);}
+    if(planting)for(int m:{19,20,21})draw(m); // existing batched trunks/crowns; no flowers or grass blades
 }

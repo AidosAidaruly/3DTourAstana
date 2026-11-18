@@ -1,4 +1,5 @@
 #include "TalanTowers.h"
+#include "SunShadows.h"
 
 #include <cmath>
 #include <vector>
@@ -508,4 +509,24 @@ void TalanTowers::render(
     }
 
     glBindVertexArray(0);
+}
+
+void TalanTowers::renderShadow(const Mesh& mesh,SunShadows& shadows)const
+{
+    shadows.instanced(false);
+    auto cube=[&](const Mat4& m){Vec3 p{m[12],m[13],m[14]},e{std::abs(m[0])*.5f,std::abs(m[5])*.5f,std::abs(m[10])*.5f};
+        if(!shadows.intersects(p,e))return;glUniformMatrix4fv(shadows.modelLocation(),1,GL_FALSE,m.data());mesh.drawCube();shadows.record(36);};
+    cube(podiumModel);cube(roofModel);for(const auto& m:canopyColumns)cube(m);
+    for(std::size_t i=0;i<towerModels.size();++i){const auto& m=towerModels[i];
+        if(!shadows.intersects({m[12],m[13]+m[5]*.5f,m[14]},{10,m[5]*.5f,10}))continue;
+        // Tower facades are opaque reflective architecture, not blended glass.
+        glBindVertexArray(vao);glUniformMatrix4fv(shadows.modelLocation(),1,GL_FALSE,m.data());
+        const auto& r=towerRanges[i];GLsizei count=r.sideVertexCount+r.roofVertexCount+r.edgeVertexCount;
+        glDrawArrays(GL_TRIANGLES,r.firstVertex,count);shadows.record(count);shadows.countCasters(1);
+    }
+    if(shadows.intersects({galleryModel[12],3,galleryModel[14]},{28,5,23})){
+        glBindVertexArray(vao);glUniformMatrix4fv(shadows.modelLocation(),1,GL_FALSE,galleryModel.data());
+        GLsizei count=canopyTopVertexCount+canopyUndersideVertexCount+canopyFasciaVertexCount;
+        glDrawArrays(GL_TRIANGLES,canopyFirstVertex,count);shadows.record(count);
+    }
 }

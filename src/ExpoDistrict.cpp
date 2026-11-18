@@ -1,4 +1,5 @@
 #include "ExpoDistrict.h"
+#include "ShadowProxies.h"
 #include "CityRoadPlan.h"
 #include "ExpoCanopy.h"
 #include "ExpoRoadConnection.h"
@@ -1247,4 +1248,9 @@ void ExpoDistrict::renderCanopyGlass(GLint modelLocation,GLint colorLocation,
     if(!blend)glDisable(GL_BLEND);
     if(cull)glEnable(GL_CULL_FACE);
     if(!depthTest)glDisable(GL_DEPTH_TEST);
+}
+
+void ExpoDistrict::appendShadowProxies(ShadowProxies& proxies)const
+{
+    nurAlem.appendShadowProxies(proxies);
 }

@@ -8,6 +8,8 @@
 #include <vector>
 
 // Curved forecourt planting and coordinated street-tree rows.
+class ShadowProxies;
+
 class AbuDhabiLandscaping
 {
 public:
@@ -19,6 +21,9 @@ public:
 
     void render(const Mesh& mesh, GLint modelLocation,
                 GLint objectColorLocation, GLint useGrassLocation) const;
+
+    void appendShadowProxies(ShadowProxies& proxies)const;
+    void appendTrees(TreeModels& models)const;
 
 private:
     struct IndexRange

@@ -3,6 +3,9 @@
 
 #include "Camera.h"
 #include "Scene.h"
+#include "ColorGrading.h"
+#include "TourControls.h"
+#include "TourOverlay.h"
 
 #include <algorithm>
 #include <array>
@@ -31,6 +34,7 @@ int main(int argc, char** argv)
 
     if (!glfwInit())
     {
+        std::cerr << "GLFW initialization failed" << std::endl;
         return 1;
     }
 
@@ -45,6 +49,7 @@ int main(int argc, char** argv)
 
     if (!window)
     {
+        std::cerr << "Cannot create the OpenGL 3.3 Core tour window" << std::endl;
         glfwTerminate();
         return 1;
     }
@@ -105,6 +110,8 @@ int main(int argc, char** argv)
         {GLFW_KEY_9, EsilEmbankment::riverViewEye, EsilEmbankment::riverViewTarget}
     }};
 
+    // Temporary development spawn while Khan Shatyr is being refined.
+    camera.setViewpoint(viewpoints[2].eye, viewpoints[2].target);
     glfwSetWindowUserPointer(window, &camera);
 
     glfwSwapInterval(1);
@@ -141,6 +148,9 @@ int main(int argc, char** argv)
 
         // Scene resources are destroyed before the window and OpenGL context.
         Scene scene(shaders);
+        ColorGrading colorGrading;
+        TourControls tour;
+        TourOverlay overlay;
         double previous = glfwGetTime();
         double statisticsStart = previous;
         unsigned renderedFrames = 0;
@@ -150,10 +160,19 @@ int main(int argc, char** argv)
             double now = glfwGetTime();
             float dt = static_cast<float>(std::min(now - previous, 0.1));
             previous = now;
+            tour.advance(now);
 
             glfwPollEvents();
 
             bool focused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
+            auto down=[&](int key){return glfwGetKey(window,key)==GLFW_PRESS;};
+            tour.update({down(GLFW_KEY_F1),down(GLFW_KEY_H),down(GLFW_KEY_F2),down(GLFW_KEY_P),
+                         down(GLFW_KEY_LEFT_BRACKET),down(GLFW_KEY_RIGHT_BRACKET),down(GLFW_KEY_R)},focused);
+            scene.setSunOffset(tour.sunOffset);
+            scene.updateShadowToggle(glfwGetKey(window,GLFW_KEY_F6)==GLFW_PRESS,focused);
+            colorGrading.updateToggle(glfwGetKey(window,GLFW_KEY_F7)==GLFW_PRESS,focused);
+            colorGrading.updateFxaaToggle(glfwGetKey(window,GLFW_KEY_F8)==GLFW_PRESS,focused);
+            scene.updateSkyToggle(glfwGetKey(window,GLFW_KEY_F9)==GLFW_PRESS,focused);
 
             for (LandmarkViewpoint& viewpoint : viewpoints)
             {
@@ -185,6 +204,7 @@ int main(int argc, char** argv)
             }
 
             glViewport(0, 0, width, height);
+            ColorGrading::Frame colorFrame(colorGrading,width,height);
             glClearColor(0.65f, 0.80f, 0.92f, 1);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -193,7 +213,10 @@ int main(int argc, char** argv)
                      static_cast<float>(width) / static_cast<float>(height)
                  );
 
-            scene.render(view, projection, static_cast<float>(now));
+            scene.render(view, projection, static_cast<float>(tour.animationTime));
+            colorFrame.present();
+            overlay.render(width,height,tour,{camera.movementModeName(),scene.skyModeName(),camera.movementSpeed(),
+                scene.sunAzimuthDegrees(),scene.shadowsEnabled(),colorGrading.enabled(),colorGrading.fxaaEnabled()});
             glfwSwapBuffers(window);
 
             // Wall-clock presentation rate, including input, CPU submission,
@@ -204,11 +227,11 @@ int main(int argc, char** argv)
             double elapsed = statisticsEnd - statisticsStart;
             if (elapsed >= 1.0)
             {
-                char title[160];
+                char title[320];
                 std::snprintf(title, sizeof(title),
-                    "Astana 3D Tour | %.1f FPS | %.2f ms avg | %s %.0f m/s | F fly | G fast | ESC exit",
+                    "Astana 3D Tour | %.1f FPS | %.2f ms avg | %s %.0f m/s | F fly | G fast | F6 shadows %s | F7 color %s | F8 FXAA %s | F9 sky %s | %s | Sun %.0f deg | F1/H help | ESC exit",
                     renderedFrames / elapsed, elapsed * 1000.0 / renderedFrames,
-                    camera.movementModeName(), camera.movementSpeed());
+                    camera.movementModeName(), camera.movementSpeed(),scene.shadowsEnabled()?"ON":"OFF",colorGrading.enabled()?"ON":"OFF",colorGrading.fxaaEnabled()?"ON":"OFF",scene.skyModeName(),tour.paused?"PAUSED":"RUNNING",scene.sunAzimuthDegrees());
                 glfwSetWindowTitle(window, title);
                 statisticsStart = statisticsEnd;
                 renderedFrames = 0;

@@ -8,6 +8,8 @@
 #include <vector>
 
 // Four-petal EXPO ensemble, central sphere, four low pods and pedestrian courts.
+class ShadowProxies;
+
 class ExpoDistrict
 {
 public:
@@ -28,6 +30,8 @@ public:
                 GLuint stoneTexture, GLint glassLocation, GLint facadeLocation, GLint asphaltLocation) const;
     void renderCanopyGlass(GLint modelLocation, GLint colorLocation,
                            GLint glassLocation, const Mat4& view) const;
+
+    void appendShadowProxies(ShadowProxies& proxies)const;
 
 private:
     struct Range { std::size_t first = 0; GLsizei count = 0; };

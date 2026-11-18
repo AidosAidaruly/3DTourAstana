@@ -1,4 +1,7 @@
 #include "AbuDhabiLandscaping.h"
+#include "TreeModels.h"
+#include "LowVegetationGeometry.h"
+#include "ShadowProxies.h"
 
 #include <array>
 #include <cmath>
@@ -7,7 +10,6 @@
 namespace
 {
     constexpr int curveSegments = 32;
-    constexpr int shrubSegments = 8;
 
     struct Oval
     {
@@ -123,80 +125,32 @@ namespace
         }
     }
 
+    void appendLowPlant(std::vector<float>& vertices,std::vector<GLuint>& indices,Vec3 p,Vec3 r,int kind=0,float phase=0)
+    {
+        auto v=[&](Vec3 x,Vec3 n){return appendVertex(vertices,x,n);};
+        auto t=[&](GLuint a,GLuint b,GLuint c){indices.insert(indices.end(),{a,b,c});};
+        if(kind==0)LowVegetationGeometry::shrub(p,r,v,t);
+        else if(kind==1)LowVegetationGeometry::head(p,r,v,t);
+        else if(kind==2)LowVegetationGeometry::stem(p,r.y,r,v,t);
+        else if(kind==3)LowVegetationGeometry::grass(p,r,phase,v,t);
+        else LowVegetationGeometry::hedge(p,r,v,t);
+    }
     void appendShrub(std::vector<float>& vertices,
                      std::vector<GLuint>& indices, float x, float z)
     {
-        constexpr std::array<float, 3> radii{{0.52f, 0.44f, 0.18f}};
-        constexpr std::array<float, 3> heights{{0.055f, 0.40f, 0.65f}};
-
-        for (int level = 0; level < 2; ++level)
-        {
-            for (int segment = 0; segment < shrubSegments; ++segment)
-            {
-                float start = 2.0f * pi * segment / shrubSegments;
-                float end = 2.0f * pi * (segment + 1) / shrubSegments;
-                auto point = [&](int ring, float angle)
-                {
-                    return Vec3{x + radii[ring] * std::cos(angle),
-                                heights[ring],
-                                z + radii[ring] * std::sin(angle)};
-                };
-
-                Vec3 a = point(level, start);
-                Vec3 b = point(level + 1, start);
-                Vec3 c = point(level + 1, end);
-                Vec3 d = point(level, end);
-                appendTriangle(vertices, indices, a, b, c);
-                appendTriangle(vertices, indices, a, c, d);
-            }
-        }
-
-        for (int segment = 0; segment < shrubSegments; ++segment)
-        {
-            float start = 2.0f * pi * segment / shrubSegments;
-            float end = 2.0f * pi * (segment + 1) / shrubSegments;
-            Vec3 a{x + radii[2] * std::cos(start), heights[2],
-                   z + radii[2] * std::sin(start)};
-            Vec3 b{x + radii[2] * std::cos(end), heights[2],
-                   z + radii[2] * std::sin(end)};
-            appendTriangle(vertices, indices, {x, 0.69f, z}, a, b, true);
-        }
+        appendLowPlant(vertices,indices,{x,.3725f,z},{.52f,.3175f,.52f});
     }
 
     void appendStem(std::vector<float>& vertices,
                     std::vector<GLuint>& indices, const Flower& flower)
     {
-        for (float angle : {0.0f, pi * 0.5f})
-        {
-            float dx = 0.025f * std::cos(angle);
-            float dz = 0.025f * std::sin(angle);
-            Vec3 a{flower.x - dx, 0.07f, flower.z - dz};
-            Vec3 b{flower.x + dx, 0.07f, flower.z + dz};
-            Vec3 c{flower.x + dx, 0.34f, flower.z + dz};
-            Vec3 d{flower.x - dx, 0.34f, flower.z - dz};
-            appendTriangle(vertices, indices, a, b, c);
-            appendTriangle(vertices, indices, a, c, d);
-        }
+        appendLowPlant(vertices,indices,{flower.x,.07f,flower.z},{.12f,.27f,.12f},2);
     }
 
     void appendBlossom(std::vector<float>& vertices,
                        std::vector<GLuint>& indices, const Flower& flower)
     {
-        for (int petal = 0; petal < 5; ++petal)
-        {
-            float angle = 2.0f * pi * petal / 5.0f;
-            auto edge = [&](float offset)
-            {
-                return Vec3{
-                    flower.x + 0.20f * std::cos(angle + offset),
-                    0.36f,
-                    flower.z + 0.20f * std::sin(angle + offset)
-                };
-            };
-            appendTriangle(vertices, indices,
-                           {flower.x, 0.39f, flower.z},
-                           edge(-0.36f), edge(0.36f), true);
-        }
+        appendLowPlant(vertices,indices,{flower.x,.34f,flower.z},{.18f,.09f,.18f},1);
     }
 }
 
@@ -359,7 +313,7 @@ void AbuDhabiLandscaping::drawRange(const IndexRange& range, Vec3 color,
                    reinterpret_cast<void*>(range.firstIndex * sizeof(GLuint)));
 }
 
-void AbuDhabiLandscaping::render(const Mesh& mesh, GLint modelLocation,
+void AbuDhabiLandscaping::render(const Mesh&, GLint modelLocation,
                                  GLint objectColorLocation,
                                  GLint useGrassLocation) const
 {
@@ -382,8 +336,13 @@ void AbuDhabiLandscaping::render(const Mesh& mesh, GLint modelLocation,
 
     glBindVertexArray(0);
 
-    for (const Tree& tree : trees)
-    {
-        tree.render(mesh, modelLocation, objectColorLocation);
-    }
+    // Trees are submitted by the shared instanced pool in Scene.
 }
+
+void AbuDhabiLandscaping::appendShadowProxies(ShadowProxies& proxies)const
+{
+    for(const auto& tree:trees)tree.appendShadowProxies(proxies);
+}
+
+void AbuDhabiLandscaping::appendTrees(TreeModels& models)const
+{for(const auto& tree:trees)tree.appendTrees(models);}

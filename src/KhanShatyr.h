@@ -6,6 +6,8 @@
 
 #include <cstddef>
 
+class SunShadows;
+
 class KhanShatyr
 {
 public:
@@ -24,6 +26,8 @@ public:
         GLint useGrassLocation,
         GLint useTextureLocation
     ) const;
+
+    void renderShadow(SunShadows& shadows)const;
 
 private:
     struct IndexRange

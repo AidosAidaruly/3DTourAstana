@@ -13,6 +13,7 @@
 #include "Tree.h"
 #include "Bench.h"
 #include "StreetLight.h"
+#include "LowVegetationGeometry.h"
 
 #include <algorithm>
 #include <cmath>
@@ -343,6 +344,17 @@ namespace
             }
         }
     }
+    void appendLowPlant(std::vector<float>& vertices,std::vector<GLuint>& indices,Vec3 p,Vec3 r,int kind=0,float phase=0)
+    {
+        auto v=[&](Vec3 x,Vec3 n){return appendVertex(vertices,x,n);};
+        auto t=[&](GLuint a,GLuint b,GLuint c){indices.insert(indices.end(),{a,b,c});};
+        if(kind==0)LowVegetationGeometry::shrub(p,r,v,t);
+        else if(kind==1)LowVegetationGeometry::head(p,r,v,t);
+        else if(kind==2)LowVegetationGeometry::stem(p,r.y,r,v,t);
+        else if(kind==3)LowVegetationGeometry::grass(p,r,phase,v,t);
+        else LowVegetationGeometry::hedge(p,r,v,t);
+    }
+
 
     void appendConiferTier(std::vector<float>& vertices,
                            std::vector<GLuint>& indices, Vec3 base,
@@ -1265,64 +1277,15 @@ BotanicalGarden::BotanicalGarden()
         }
     }
 
-    treeTrunks.firstIndex = indices.size();
-    for (const GardenTree& tree : trees)
-    {
-        float radius = (tree.kind == 0 ? 0.325f : 0.19f) * tree.scale;
-        float height = (tree.kind == 0 ? 4.4f : 3.8f) * tree.scale;
-        appendBox(vertices, indices, tree.root.x - radius, tree.root.x + radius,
-                  tree.root.y, tree.root.y + height,
-                  tree.root.z - radius, tree.root.z + radius);
-    }
-    for (const GardenTree& tree : lakeTrees)
-        appendBox(vertices, indices, tree.root.x - 0.12f, tree.root.x + 0.12f,
-                  tree.root.y, tree.root.y + 2.2f, tree.root.z - 0.12f, tree.root.z + 0.12f);
-    finishRange(treeTrunks);
-
-    clusteredFoliage.firstIndex = indices.size();
-    for (const GardenTree& tree : trees)
-    {
-        if (tree.kind != 0) continue;
-        for (std::size_t cluster = 0; cluster < Tree::foliageOffsets.size(); ++cluster)
-        {
-            float radius = Tree::foliageRadii[cluster] * tree.scale;
-            appendPlantEllipsoid(vertices, indices,
-                tree.root + Tree::foliageOffsets[cluster] * tree.scale,
-                {radius, radius, radius});
-        }
-    }
-    for (const GardenTree& tree : lakeTrees)
-        for (std::size_t cluster = 0; cluster < Tree::foliageOffsets.size(); ++cluster)
-        {
-            float r = Tree::foliageRadii[cluster] * tree.scale;
-            appendPlantEllipsoid(vertices, indices, tree.root + Tree::foliageOffsets[cluster] * tree.scale,
-                                 {r, r, r});
-        }
-    finishRange(clusteredFoliage);
-
-    columnarFoliage.firstIndex = indices.size();
-    for (const GardenTree& tree : trees)
-    {
-        if (tree.kind != 1) continue;
-        appendPlantEllipsoid(vertices, indices,
-            tree.root + Vec3{0, 4.8f, 0} * tree.scale,
-            Vec3{1.45f, 2.4f, 1.45f} * tree.scale);
-    }
-    finishRange(columnarFoliage);
-
-    coniferFoliage.firstIndex = indices.size();
-    for (const GardenTree& tree : trees)
-    {
-        if (tree.kind != 2) continue;
-        for (int tier = 0; tier < 3; ++tier)
-        {
-            appendConiferTier(vertices, indices,
-                tree.root + Vec3{0, 2.0f + 1.4f * tier, 0} * tree.scale,
-                (1.55f - 0.34f * tier) * tree.scale,
-                (3.2f - 0.4f * tier) * tree.scale);
-        }
-    }
-    finishRange(coniferFoliage);
+    for(const auto& tree:trees)ShadowProxies::tree(treeShadowShapes,model,tree.root,tree.scale,tree.kind);
+    for(const auto& tree:lakeTrees)ShadowProxies::tree(treeShadowShapes,model,tree.root,tree.scale,tree.kind);
+    auto registerTree=[&](const GardenTree& tree){
+        Vec3 r=tree.root;
+        Vec3 world{model[0]*r.x+model[4]*r.y+model[8]*r.z+model[12],model[1]*r.x+model[5]*r.y+model[9]*r.z+model[13],model[2]*r.x+model[6]*r.y+model[10]*r.z+model[14]};
+        treeSites.push_back(TreeModels::planting(world,(tree.kind==0?2.9f:tree.kind==1?1.45f:1.55f)*tree.scale,(tree.kind==0?8.0f:7.2f)*tree.scale,tree.kind));
+    };
+    for(const auto& tree:trees)registerTree(tree);
+    for(const auto& tree:lakeTrees)registerTree(tree);
 
     struct FlowerPlant
     {
@@ -1382,7 +1345,7 @@ BotanicalGarden::BotanicalGarden()
         {
             Vec3 root = sectorPlantPosition(sector, 30.6f,
                 0.2f + 0.6f * shrub / 19.0f);
-            appendPlantEllipsoid(vertices, indices, root + Vec3{0, 0.32f, 0},
+            appendLowPlant(vertices, indices, root + Vec3{0, 0.32f, 0},
                                  {0.35f, 0.32f, 0.35f});
         }
     }
@@ -1390,7 +1353,7 @@ BotanicalGarden::BotanicalGarden()
     {
         if (isOuterPlantingSite(root, 0.45f) && clearOfTreeCrowns(root, 0.45f))
         {
-            appendPlantEllipsoid(vertices, indices, root + Vec3{0, 0.38f, 0},
+            appendLowPlant(vertices, indices, root + Vec3{0, 0.38f, 0},
                                  {0.45f, 0.38f, 0.45f});
         }
     };
@@ -1406,24 +1369,9 @@ BotanicalGarden::BotanicalGarden()
         addOuterShrub({-82.0f + 2.0f * shrub, 0.018f, -102.0f});
     }
     for (Vec3 root : lakeShrubs)
-        appendPlantEllipsoid(vertices, indices, root + Vec3{0, 0.34f, 0}, {0.38f, 0.34f, 0.38f});
-    for (Vec3 root : lakeGrasses)
-        for (int blade = 0; blade < 7; ++blade)
-        {
-            float angle = blade * 2.0f * pi / 7.0f;
-            Vec3 stemRoot = root + Vec3{0.035f * std::cos(angle), 0, 0.035f * std::sin(angle)};
-            Vec3 tip = stemRoot + Vec3{0, 0.35f + 0.06f * (blade % 3), 0};
-            appendSteelBeam(vertices, indices, stemRoot, tip, 0.012f);
-            appendTropicalLeaf(vertices, indices, tip, angle, 0.20f, 0.022f);
-        }
-    for (const FlowerPlant& flower : flowers)
-    {
-        Vec3 p = flower.position;
-        appendBox(vertices, indices, p.x - 0.018f, p.x + 0.018f,
-                  flower.groundHeight, 0.44f, p.z - 0.018f, p.z + 0.018f);
-        appendPlantEllipsoid(vertices, indices, {p.x, 0.19f, p.z},
-                             {0.16f, 0.10f, 0.12f});
-    }
+        appendLowPlant(vertices, indices, root + Vec3{0, 0.34f, 0}, {0.38f, 0.34f, 0.38f});
+    for(Vec3 root:lakeGrasses)appendLowPlant(vertices,indices,root,{.235f,.55f,.235f},3);
+    for(const auto& flower:flowers)appendLowPlant(vertices,indices,{flower.position.x,flower.groundHeight,flower.position.z},{.16f,.44f-flower.groundHeight,.12f},2);
     finishRange(hedgesAndLeaves);
 
     for (int color = 0; color < 4; ++color)
@@ -1433,9 +1381,9 @@ BotanicalGarden::BotanicalGarden()
         {
             if (flower.color == color)
             {
-                appendPlantEllipsoid(vertices, indices,
+                appendLowPlant(vertices, indices,
                     {flower.position.x, 0.44f, flower.position.z},
-                    {0.16f, 0.09f, 0.16f});
+                    {0.16f, 0.09f, 0.16f},1);
             }
         }
         finishRange(blossoms[color]);
@@ -1627,21 +1575,8 @@ BotanicalGarden::BotanicalGarden()
             addStreetTree(x,-247);
             addStreetTree(x,-7);
         }
-    perimeterTreeTrunks.firstIndex=indices.size();
-    for (const StreetTree& tree : streetTrees)
-    {
-        Vec3 root=tree.local; float r=0.325f*tree.scale;
-        appendBox(vertices,indices,root.x-r,root.x+r,root.y,root.y+4.4f*tree.scale,root.z-r,root.z+r);
-    }
-    finishRange(perimeterTreeTrunks);
-    perimeterTreeFoliage.firstIndex=indices.size();
-    for (const StreetTree& tree : streetTrees)
-        for (std::size_t cluster=0;cluster<Tree::foliageOffsets.size();++cluster)
-        {
-            float r=Tree::foliageRadii[cluster]*tree.scale;
-            appendPlantEllipsoid(vertices,indices,tree.local+Tree::foliageOffsets[cluster]*tree.scale,{r,r,r});
-        }
-    finishRange(perimeterTreeFoliage);
+    for(const auto& tree:streetTrees)ShadowProxies::tree(treeShadowShapes,model,tree.local,tree.scale,0);
+    for(const auto& tree:streetTrees)registerTree({tree.local,tree.scale,0});
 
     const Vec3 streetLightSites[] = {{-477,90,-218},{-477,90,-58},
         {-263,-90,-218},{-263,-90,-58},{-442,0,-247},{-292,0,-247},
@@ -1918,12 +1853,8 @@ BotanicalGarden::BotanicalGarden()
                     0.12f, b.minZ + 0.55f + row * 0.9f});
     }
     finishRange(entranceSoil);
-    entranceLeaves.firstIndex = indices.size();
-    for (Vec3 p : entranceFlowerPositions)
-    {
-        appendBox(vertices, indices, p.x - 0.018f, p.x + 0.018f, p.y, 0.44f, p.z - 0.018f, p.z + 0.018f);
-        appendPlantEllipsoid(vertices, indices, {p.x, 0.26f, p.z}, {0.17f, 0.07f, 0.13f});
-    }
+    entranceLeaves.firstIndex=indices.size();
+    for(Vec3 p:entranceFlowerPositions)appendLowPlant(vertices,indices,p,{.17f,.44f-p.y,.13f},2);
     finishRange(entranceLeaves);
     for (int color = 0; color < 2; ++color)
     {
@@ -1932,7 +1863,7 @@ BotanicalGarden::BotanicalGarden()
             if (static_cast<int>((i / 8) % 2) == color)
             {
                 Vec3 p = entranceFlowerPositions[i];
-                appendPlantEllipsoid(vertices, indices, {p.x, 0.44f, p.z}, {0.15f, 0.09f, 0.15f});
+                appendLowPlant(vertices, indices, {p.x, 0.44f, p.z}, {0.15f, 0.09f, 0.15f},1);
             }
         finishRange(entranceFlowers[color]);
     }
@@ -2187,6 +2118,21 @@ BotanicalGarden::BotanicalGarden()
         };
         glassTriangles.push_back({{indices[i], indices[i + 1], indices[i + 2]}, world});
     }
+    // G9C: capture only authored grass-sector triangles, never the underlying
+    // district rectangle. Project existing near-ground geometry as exclusion masks.
+    auto grassPoint=[&](GLuint index){std::size_t k=std::size_t(index)*8;
+        Vec3 p{vertices[k],vertices[k+1],vertices[k+2]};
+        return Vec3{model[0]*p.x+model[4]*p.y+model[8]*p.z+model[12],
+                    model[1]*p.x+model[5]*p.y+model[9]*p.z+model[13],
+                    model[2]*p.x+model[6]*p.y+model[10]*p.z+model[14]};};
+    auto inRange=[](std::size_t i,const IndexRange& r){return i>=r.firstIndex&&i<r.firstIndex+r.count;};
+    for(std::size_t i=0;i<indices.size();i+=3){
+        GrassDetail::Triangle t{grassPoint(indices[i]),grassPoint(indices[i+1]),grassPoint(indices[i+2])};
+        if(inRange(i,lightSectors)||inRange(i,darkSectors))grassSite.lawn.push_back(t);
+        else if(!inRange(i,district)&&std::min({t.a.y,t.b.y,t.c.y})<.95f)grassSite.blocked.push_back(t);
+    }
+    for(const auto& tree:treeSites)grassSite.planting.push_back({tree.root,.7f});
+
     glGenBuffers(1, &glassEbo);
 
     glGenVertexArrays(1, &vao);
@@ -2457,4 +2403,9 @@ void BotanicalGarden::renderGreenhouseGlass(GLint modelLocation,
     if (!oldBlend) glDisable(GL_BLEND);
     if (oldCull) glEnable(GL_CULL_FACE);
     if (!oldDepthTest) glDisable(GL_DEPTH_TEST);
+}
+
+void BotanicalGarden::appendShadowProxies(ShadowProxies& proxies)const
+{
+    proxies.beginVegetation();proxies.append(treeShadowShapes);
 }

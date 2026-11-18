@@ -1,10 +1,13 @@
 #include "Shader.h"
+#include "SkyAtmosphere.h"
+#include "GroundMaterials.h"
 
 #include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -20,13 +23,15 @@ namespace
 
         std::ostringstream text;
         text << input.rdbuf();
-
+        if(input.bad())throw std::runtime_error("Failed reading shader: "+file.string());
+        if(text.str().empty())throw std::runtime_error("Shader file is empty: "+file.string());
         return text.str();
     }
 
     GLuint compileShader(GLenum type, const std::filesystem::path& file)
     {
         std::string source = readText(file);
+        if(type==GL_FRAGMENT_SHADER)source=DayAtmosphere::fragmentSource(std::move(source));
         const char* ptr = source.c_str();
 
         GLuint shader = glCreateShader(type);
@@ -97,6 +102,7 @@ namespace
 Shader::Shader(const std::filesystem::path& shaderDirectory)
     : program(createProgram(shaderDirectory))
 {
+    GroundMaterials::configure(program);
 }
 
 Shader::~Shader()

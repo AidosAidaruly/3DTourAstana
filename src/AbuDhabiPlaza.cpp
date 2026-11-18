@@ -1,4 +1,5 @@
 #include "AbuDhabiPlaza.h"
+#include "ShadowProxies.h"
 
 #include <array>
 
@@ -292,4 +293,12 @@ void AbuDhabiPlaza::render(const Mesh& mesh, GLint modelLocation,
         glUniform3f(objectColorLocation, part.color.x, part.color.y, part.color.z);
         mesh.drawCube();
     }
+}
+
+void AbuDhabiPlaza::appendShadowProxies(ShadowProxies& proxies)const
+{
+    proxies.beginLandmark();for(const auto& part:solidParts)proxies.add(ShadowProxies::Box,part.model);
+    // These tower masses render opaque (alpha 1), unlike blended canopy glass.
+    // Small lobby/door panes are excluded rather than becoming solid blockers.
+    for(const auto& part:glassParts)if(part.mainFacade||part.secondaryFacadeMode>0)proxies.add(ShadowProxies::Box,part.model);
 }

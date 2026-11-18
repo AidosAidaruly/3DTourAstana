@@ -12,7 +12,7 @@ public:
     CityRoadNetwork(const CityRoadNetwork&)=delete;
     CityRoadNetwork& operator=(const CityRoadNetwork&)=delete;
     void render(GLint modelLocation,GLint colorLocation,GLint objectLocation,
-                GLint asphaltLocation,GLint grassLocation) const;
+                GLint asphaltLocation,GLint grassLocation,GLint pavingLocation) const;
 private:
     struct Range {std::size_t first=0;GLsizei count=0;};
     std::array<Range,4> ranges{};

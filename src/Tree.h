@@ -5,6 +5,9 @@
 
 #include <array>
 
+class ShadowProxies;
+class TreeModels;
+
 class Tree
 {
 public:
@@ -21,8 +24,13 @@ public:
     // Uses the scene's active solid-color shader and shared meshes.
     void render(const Mesh& mesh, GLint modelLocation, GLint objectColorLocation) const;
 
+    void appendShadowProxies(ShadowProxies& proxies)const;
+    void appendTrees(TreeModels& models)const;
+
 private:
     Mat4 trunkModel;
     std::array<Mat4, 4> foliageModels;
     float foliageVariation = 0.0f;
+    Vec3 root{};
+    float treeScale=1;
 };

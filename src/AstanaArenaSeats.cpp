@@ -1,4 +1,5 @@
 #include "AstanaArenaSeats.h"
+#include "SkyAtmosphere.h"
 #include "AstanaArena.h"
 #include <algorithm>
 #include <cmath>
@@ -157,7 +158,8 @@ namespace
     }
     GLuint compile(GLenum kind,const char* source)
     {
-        GLuint shader=glCreateShader(kind);glShaderSource(shader,1,&source,nullptr);glCompileShader(shader);
+        std::string text=kind==GL_FRAGMENT_SHADER?DayAtmosphere::fragmentSource(source):source;const char* ptr=text.c_str();
+        GLuint shader=glCreateShader(kind);glShaderSource(shader,1,&ptr,nullptr);glCompileShader(shader);
         GLint ok=0;glGetShaderiv(shader,GL_COMPILE_STATUS,&ok);
         if (!ok) {char log[4096]{};glGetShaderInfoLog(shader,4096,nullptr,log);glDeleteShader(shader);throw std::runtime_error(std::string("Arena seats shader: ")+log);}
         return shader;
@@ -173,6 +175,7 @@ uniform bool instanced;
 uniform vec3 materialColor;
 out vec3 n;
 out vec3 color;
+out vec3 worldViewDirection;
 void main(){
  vec3 p=position,nn=normal;
  color=materialColor*material.x;
@@ -184,16 +187,19 @@ void main(){
   color=mix(vec3(0.24,0.28,0.31),paint,material.y)*material.x;
  }
  n=mat3(model)*nn;
- gl_Position=projection*view*model*vec4(p,1.0);
+ vec4 eyePosition=view*model*vec4(p,1.0);
+ worldViewDirection=transpose(mat3(view))*(-eyePosition.xyz);
+ gl_Position=projection*eyePosition;
 })GLSL";
     const char* fragmentShader=R"GLSL(#version 330 core
 in vec3 n;
 in vec3 color;
+in vec3 worldViewDirection;
 uniform vec3 lightDirection;
 out vec4 fragColor;
 void main(){
- float sun=max(dot(normalize(n),normalize(-lightDirection)),0.0);
- fragColor=vec4(color*(0.64+0.36*sun),1.0);
+ // Retain the approved bowl's extra indoor fill using the shared daylight.
+ fragColor=vec4(color*dayDiffuseLight(normalize(n),normalize(-lightDirection),0.64,0.36),1.0);
 })GLSL";
 
     bool visible(const Mat4& view,const Mat4& projection)

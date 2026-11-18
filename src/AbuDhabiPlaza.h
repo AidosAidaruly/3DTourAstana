@@ -6,6 +6,8 @@
 #include <vector>
 
 // A compact, reusable silhouette of the connected Abu Dhabi Plaza complex.
+class ShadowProxies;
+
 class AbuDhabiPlaza
 {
 public:
@@ -15,6 +17,8 @@ public:
                 GLint objectColorLocation, GLint shaftGlassLocation,
                 GLint facadeLocation, GLint secondaryFacadeLocation,
                 GLint glassMaterialLocation) const;
+
+    void appendShadowProxies(ShadowProxies& proxies)const;
 
 private:
     struct Part

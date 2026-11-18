@@ -7,6 +7,8 @@
 #include <cstddef>
 
 // Static oval shell with opaque aluminum and reflective facade glazing.
+class SunShadows;
+
 class AstanaArena
 {
 public:
@@ -27,6 +29,8 @@ public:
     void renderSeats(const Mat4& view,const Mat4& projection,Vec3 light) const
     {seating.render(view,projection,light);}
     AstanaArenaSeats::Statistics seatingStatistics() const {return seating.statistics();}
+
+    void renderShadow(SunShadows& shadows)const;
 
 private:
     struct Range { std::size_t first = 0; GLsizei count = 0; };

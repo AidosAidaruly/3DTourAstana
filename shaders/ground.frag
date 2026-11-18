@@ -27,6 +27,7 @@ uniform bool khanCanopy;
 uniform bool khanCable;
 uniform bool useGrass;
 uniform bool useAsphalt;
+uniform bool genericPaving;
 uniform bool akOrdaStone;
 uniform bool akOrdaRoof;
 uniform bool akOrdaWater;
@@ -115,12 +116,14 @@ vec3 shadeAbuDhabiGlass(vec3 baseColor, vec3 normal, vec3 toLight, float lambert
     environment += vec3(0.025, 0.028, 0.030) * cloud *
         smoothstep(0.05, 0.50, reflection.y);
 
+    environment=mix(environment,buildingEnvironment(reflection,baseColor),0.60);
+
     float sunFacing = max(dot(normal, toLight), 0.0);
     float reflectionWeight = clamp(
         0.16 + 0.48 * fresnel + 0.06 * sunFacing, 0.0, 0.68
     );
     vec3 diffuseGlass = baseColor *
-        (ambientStrength + diffuseStrength * lambert);
+        dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength);
     vec3 color = mix(diffuseGlass, environment, reflectionWeight);
 
     // A moderately broad sun lobe approximates polished, imperfect glass.
@@ -173,7 +176,8 @@ vec3 shadeNurAlemGlass(vec3 baseColor, vec3 normal, vec3 toLight, float lambert)
                     * sin(reflection.z * 4.0 - reflection.x * 2.0);
     environment += vec3(0.015, 0.017, 0.018) * softCloud
                  * smoothstep(0.0, 0.55, reflection.y);
-    vec3 color = tint * (0.45 + 0.55 * (ambientStrength + diffuseStrength * lambert));
+    environment=mix(environment,buildingEnvironment(reflection,tint),0.45);
+    vec3 color = tint * (vec3(0.45) + 0.55 * dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength));
     color = mix(color, environment, 0.22 + 0.38 * fresnel);
     float sun = max(dot(normal, normalize(toLight + viewDirection)), 0.0);
     color += vec3(0.80, 0.89, 0.94) *
@@ -219,6 +223,36 @@ vec3 shadeKhanCanopy(vec3 normal, vec3 toLight, float lambert)
     return color * variation * (1.0 - 0.025 * seam);
 }
 
+// Water-only helpers: reuse G3's mipmapped detail map and the G1 sky.
+// Analytic waves and filtered texture ripples affect normals, never vertices.
+vec3 waterRippleNormal(vec2 p,float calm,vec2 drift)
+{
+    vec2 phase=vec2(dot(p,vec2(0.19,0.085))-sceneTime*0.44,
+                    dot(p,vec2(-0.58,0.74))+sceneTime*0.66);
+    // Broad irregular bending avoids two visibly straight, repeating wave grids.
+    phase+=drift*vec2(4.0,2.6);
+    vec2 visible=1.0-smoothstep(vec2(0.35),vec2(1.6),fwidth(phase));
+    vec2 waves=cos(phase)*visible;
+    vec2 fine=texture(groundDetail,p/16.0+sceneTime*vec2(0.009,-0.006)).gb-0.5;
+    vec2 slope=vec2(0.018,0.008)*waves.x+vec2(-0.016,0.021)*waves.y+fine*0.045;
+    return normalize(vec3(-slope.x*calm,1.0,-slope.y*calm));
+}
+
+vec3 shadeDayWater(vec3 body,vec3 normal,float reflectionScale,float sunStrength)
+{
+    vec3 viewDirection=normalize(worldViewDirection),toLight=normalize(-lightDirection);
+    float facing=clamp(dot(normal,viewDirection),0.0,1.0);
+    float fresnel=0.02+0.98*pow(1.0-facing,5.0);
+    vec3 sky=daySky(reflect(-viewDirection,normal));
+    // Water keeps its body color overhead and picks up the pale sky at grazing angles.
+    vec3 color=mix(body*dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength),
+                   sky,0.07+reflectionScale*fresnel);
+    vec3 halfDirection=normalize(toLight+viewDirection);
+    float specular=max(dot(normal,halfDirection),0.0);
+    float glint=pow(specular,72.0)+0.12*pow(specular,18.0);
+    return color+vec3(1.0,0.98,0.93)*sunStrength*glint*max(dot(normal,toLight),0.0);
+}
+
 // River materials are local to the new static meshes; all existing city
 // materials and their transparency paths stay below, unchanged.
 vec3 shadeEsilSurface()
@@ -227,7 +261,7 @@ vec3 shadeEsilSurface()
     vec3 toLight = normalize(-lightDirection);
     if (esilSurface >= 3)
     {
-        float daylight = ambientStrength + diffuseStrength*max(dot(normal,toLight),0.0);
+        vec3 daylight = dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength);
         if (esilSurface == 3)
         {
             // Staggered 1.2 x 0.6 m stone slabs; every junction uses the same
@@ -247,7 +281,8 @@ vec3 shadeEsilSurface()
             return vec3(0.66,0.67,0.64)*(1.0+0.018*grain)*daylight;
         }
         if (esilSurface == 6)
-            return vec3(0.73,0.76,0.75)*(0.70+0.30*max(dot(normal,toLight),0.0));
+            return vec3(0.73,0.76,0.75)*dayDiffuseLight(normal,toLight,0.76,0.32)
+                +dayMetalHighlight(normal,toLight,worldViewDirection,0.55,0.05);
         if (esilSurface == 7)
             return vec3(0.94,0.93,0.89)*(0.84+0.16*abs(dot(normal,toLight)));
         if (esilSurface == 8)
@@ -280,37 +315,30 @@ vec3 shadeEsilSurface()
             stone = mix(stone,vec3(0.38,0.40,0.39),gasket*0.80);
             return stone*daylight;
         }
-        return vec3(0.67,0.71,0.72)*(0.70+0.30*max(dot(normal,toLight),0.0));
+        return vec3(0.67,0.71,0.72)*dayDiffuseLight(normal,toLight,0.76,0.32)
+            +dayMetalHighlight(normal,toLight,worldViewDirection,0.55,0.05);
     }
     if (esilSurface == 1)
     {
-        float checker = mod(floor(worldPosition.x) + floor(worldPosition.z), 2.0);
-        vec3 grass = mix(vec3(0.48,0.56,0.42), vec3(0.51,0.59,0.45), checker);
-        float grain = sin(worldPosition.x*1.7 + worldPosition.z*0.8) *
-                      sin(worldPosition.x*0.7 - worldPosition.z*1.3);
-        vec3 earth = mix(vec3(0.40,0.38,0.31), vec3(0.52,0.51,0.45), 0.5+0.18*grain);
+        vec3 grass = groundGrass(vec3(0.415,0.505,0.335),worldPosition.xz);
+        float grain = texture(groundDetail,worldPosition.xz/64.0).g-0.5;
+        vec3 earth = mix(vec3(0.40,0.38,0.31), vec3(0.52,0.51,0.45), 0.5+0.22*grain);
         earth *= mix(0.78,1.0,smoothstep(-3.6,-2.4,worldPosition.y));
         vec3 base = mix(earth,grass,smoothstep(-2.7,-0.15,worldPosition.y));
-        return base * (ambientStrength + diffuseStrength*max(dot(normal,toLight),0.0));
+        return base * dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength);
     }
     // Only the shading moves: the opaque water surface stays exactly at -3.6 m,
     // keeping its shoreline seam stable and avoiding transparency sorting.
-    float a = worldPosition.x*0.16 + worldPosition.z*0.085 - sceneTime*0.65;
-    float b = worldPosition.x*0.072 - worldPosition.z*0.19 + sceneTime*0.43;
-    normal = normalize(vec3(0.032*cos(a)+0.018*cos(b),1.0,
-                            0.020*sin(a)-0.025*sin(b)));
-    vec3 viewDirection = normalize(worldViewDirection);
-    float fresnel = pow(1.0-max(dot(normal,viewDirection),0.0),5.0);
-    float shore = 1.0-smoothstep(0.0,0.055,min(uv.x,1.0-uv.x));
-    vec3 body = mix(vec3(0.13,0.30,0.29),vec3(0.23,0.37,0.33),shore*0.50);
-    body *= 1.0 + 0.018*sin(a)*sin(b);
-    float daylight = ambientStrength + diffuseStrength*max(dot(normal,toLight),0.0);
-    vec3 reflection = reflect(-viewDirection,normal);
-    vec3 sky = mix(vec3(0.46,0.58,0.59),vec3(0.52,0.70,0.80),smoothstep(0.0,0.75,reflection.y));
-    vec3 color = mix(body*daylight,sky,0.16+0.32*fresnel);
-    vec3 halfDirection = normalize(toLight+viewDirection);
-    color += vec3(0.90,0.94,0.91)*pow(max(dot(normal,halfDirection),0.0),100.0)*0.20;
-    return color;
+    vec2 tone=texture(groundDetail,worldPosition.xz/256.0).rg-0.5;
+    normal=waterRippleNormal(worldPosition.xz,1.0,tone.yx);
+    // Existing U spans each bank. Include the two approved 26 m elliptical
+    // end caps so the shoreline tone continues around the river ends too.
+    float cap=max(max(-600.0-worldPosition.z,worldPosition.z-700.0),0.0)/26.0;
+    float edge=1.0-length(vec2(uv.x*2.0-1.0,cap));
+    float shore=1.0-smoothstep(0.0,0.08,edge);
+    vec3 body=mix(vec3(0.12,0.32,0.33),vec3(0.22,0.37,0.30),shore*0.65);
+    body*=1.0+dot(tone,vec2(0.12,0.045));
+    return shadeDayWater(body,normal,0.56,0.16);
 }
 
 float arenaSegmentDistance(vec2 p,vec2 a,vec2 b)
@@ -351,21 +379,21 @@ void main()
     {
         vec3 n=normalize(worldNormal),sun=normalize(-lightDirection);
         float diffuse=max(dot(n,sun),0.0);
-        vec3 color=objectColor*(0.76+0.24*diffuse);
+        vec3 color=objectColor*dayDiffuseLight(n,sun,ambientStrength,diffuseStrength);
         if (northernLightsFacade==1)
         {
             vec3 eye=normalize(worldViewDirection),reflection=reflect(-eye,n);
             float facing=max(dot(n,eye),0.0);
             float fresnel=pow(1.0-facing,5.0);
             float corner=smoothstep(.12,.45,min(abs(n.x),abs(n.z)));
-            vec3 sky=mix(vec3(.24,.39,.43),vec3(.57,.75,.82),smoothstep(-.25,.75,reflection.y));
+            vec3 sky=buildingEnvironment(reflection,objectColor);
             float horizon=1.0-smoothstep(.04,.35,abs(reflection.y-.05));
             sky+=vec3(.018,.025,.029)*horizon;
             // Gentle grouped shifts suggest blue-green glass coatings, not
             // randomly colored apartment windows or a patchwork of panels.
             float group=.5+.5*sin(floor(uv.x/3.0)*.61+floor(uv.y/8.0)*.93);
             vec3 coating=mix(vec3(.97,1.0,1.015),vec3(1.015,1.0,.98),group);
-            vec3 glass=objectColor*coating*(.78+.22*diffuse);
+            vec3 glass=objectColor*coating*(vec3(.28)+.80*dayDiffuseLight(n,sun,ambientStrength,diffuseStrength))*buildingPaneTone(uv);
             float row=fract(uv.y),spandrel=smoothstep(.79,.84,row);
             glass=mix(glass,glass*vec3(.84,.89,.92),spandrel*.65);
             color=mix(glass,sky,.30+.20*fresnel+.055*corner);
@@ -381,20 +409,20 @@ void main()
         else if (northernLightsFacade==2)
         {
             vec3 eye=normalize(worldViewDirection),reflection=reflect(-eye,n);
-            vec3 sky=mix(vec3(.25,.39,.43),vec3(.57,.74,.80),smoothstep(-.25,.65,reflection.y));
+            vec3 sky=buildingEnvironment(reflection,objectColor);
             float fresnel=pow(1.0-max(dot(n,eye),0.0),5.0);
             if (abs(n.y)>.75)
             {
                 // Pale opaque reflective canopy glazing, in the existing
                 // glass material batch; its real silver ribs bound the panes.
-                color=mix(vec3(.38,.56,.60)*(.78+.22*diffuse),sky,.30+.18*fresnel);
+                color=mix(vec3(.38,.56,.60)*(vec3(.28)+.80*dayDiffuseLight(n,sun,ambientStrength,diffuseStrength)),sky,.30+.18*fresnel);
             }
             else
             {
                 float level=step(3.92,localPosition.y)+step(7.72,localPosition.y);
                 vec3 tint=mix(vec3(1.0,1.01,1.04),vec3(.96,1.0,1.06),level*.5);
-                vec3 glass=objectColor*tint*(.76+.24*diffuse)*(level<.5?1.12:1.0);
-                color=mix(glass,sky,.24+.18*fresnel);
+                vec3 glass=objectColor*tint*(vec3(.28)+.80*dayDiffuseLight(n,sun,ambientStrength,diffuseStrength))*(level<.5?1.12:1.0);
+                color=mix(glass*buildingPaneTone(vec2(uv.x,level)),sky,.24+.18*fresnel);
                 float edge=min(fract(uv.x),1.0-fract(uv.x));
                 float aa=max(fwidth(uv.x)*.65,.0005);
                 float gasket=1.0-smoothstep(.008-aa,.008+aa,edge);
@@ -410,20 +438,21 @@ void main()
             // New static parking/driveway only. No changes to glass shading.
             float grain=.5+.5*sin(worldPosition.x*73.1+sin(worldPosition.z*51.7)*3.0);
             float broad=.5+.5*sin(worldPosition.x*.27+worldPosition.z*.19);
-            color=objectColor*(.91+.045*grain+.035*broad)*(.78+.22*diffuse);
+            color=objectColor*(.91+.045*grain+.035*broad)*dayDiffuseLight(n,sun,ambientStrength,diffuseStrength);
         }
         else if (northernLightsFacade==5)
         {
             if (uv.y<-999.0 && length(worldViewDirection)>65.0) discard;
             // Identical diffuse shading for the retained podium metalwork.
             // Fine profiles alone carry the negative UV marker above.
-            color=objectColor*(ambientStrength+diffuseStrength*diffuse);
+            color=objectColor*dayDiffuseLight(n,sun,ambientStrength,diffuseStrength)
+                +dayMetalHighlight(n,sun,worldViewDirection,.65,.035);
         }
         else if (northernLightsFacade==4)
         {
             // Broad sky fill keeps the floor edges readable from below.
-            vec3 halfDirection=normalize(sun+normalize(worldViewDirection));
-            color=objectColor*(0.78+0.22*diffuse)+vec3(.04)*pow(max(dot(n,halfDirection),0.0),40.0);
+            color=objectColor*dayDiffuseLight(n,sun,.78,.32)
+                +dayMetalHighlight(n,sun,worldViewDirection,.65,.045);
         }
         else if (abs(n.y)>0.6)
         {
@@ -444,8 +473,8 @@ void main()
         vec3 halfDirection = normalize(light+eye);
         // Broad sky fill and a restrained highlight suit satin aluminum,
         // without turning the enclosing stadium shell into bright white glass.
-        vec3 silver=vec3(0.73,0.76,0.78)*(0.78+0.22*diffuse);
-        float highlight=pow(max(dot(n,halfDirection),0.0),42.0)*0.065;
+        vec3 silver=vec3(0.73,0.76,0.78)*dayDiffuseLight(n,light,.62,.58);
+        vec3 highlight=dayMetalHighlight(n,light,worldViewDirection,.62,.065);
         vec3 color;
         if (astanaArenaFacade == 6)
         {
@@ -460,8 +489,8 @@ void main()
         else if (astanaArenaFacade == 7)
         {
             // Bare two-tier precast foundations, not finished spectator seats.
-            color=objectColor*(0.76+0.24*diffuse);
-            if (n.y>0.97) color=vec3(0.64,0.65,0.62)*(0.78+0.22*diffuse);
+            color=objectColor*dayDiffuseLight(n,light,.64,.36);
+            if (n.y>0.97) color=vec3(0.64,0.65,0.62)*dayDiffuseLight(n,light,.64,.36);
             else if (n.y>0.55)
             {
                 float course=localPosition.y/.85;
@@ -471,13 +500,13 @@ void main()
                 color*=1.0-0.15*joint;
                 color*=localPosition.y>10.2?1.05:0.97;
             }
-            else color=vec3(0.44,0.49,0.53)*(0.76+0.24*diffuse);
+            else color=vec3(0.44,0.49,0.53)*dayDiffuseLight(n,light,.64,.36);
         }
         else if (astanaArenaFacade == 8)
         {
             // Arena plaza only: metre-based entrance coordinates stay aligned
             // with the approved landing. No individual tile meshes or uploads.
-            color=objectColor*(0.72+0.28*diffuse);
+            color=objectColor*dayDiffuseLight(n,light,ambientStrength,diffuseStrength);
             if (abs(n.y)>0.6)
             {
                 vec2 grid=uv/vec2(2.4,1.2);
@@ -500,7 +529,7 @@ void main()
         }
         else if (astanaArenaFacade == 5)
         {
-            color=objectColor*(0.72+0.28*diffuse);
+            color=objectColor*dayDiffuseLight(n,light,ambientStrength,diffuseStrength);
             if (abs(n.y)>0.6)
             {
                 vec2 grid=uv/vec2(2.4,1.2);
@@ -542,7 +571,7 @@ void main()
         }
         else
         {
-            color=objectColor*(0.78+0.22*diffuse);
+            color=objectColor*dayDiffuseLight(n,light,.62,.58);
             // Very shallow tonal changes span broad metal fields. There are
             // no dark rectangular seams or regularly repeated square panels.
             float tone=sin(uv.x*0.09817477+uv.y*0.53);
@@ -572,28 +601,19 @@ void main()
     {
         vec3 color = shadeEsilSurface();
         float fade = smoothstep(750.0,1000.0,length(worldViewDirection));
-        fragColor = vec4(mix(color,vec3(0.65,0.80,0.92),fade),1.0);
+        fragColor = vec4(mix(color,daySky(-worldViewDirection),fade),1.0);
         return;
     }
     vec3 baseColor = objectColor;
 
     if (!useObjectColor)
     {
-        vec2 cell = floor(worldPosition.xz);
-        float checker = mod(cell.x + cell.y, 2.0);
-        baseColor = mix(vec3(0.48, 0.56, 0.42), vec3(0.51, 0.59, 0.45), checker);
-        // Colour the EXISTING ground, not a second raised rectangular patch.
-        // The soft elliptical meadow surrounds the R175 promenade; its east
-        // feather ends west of the Botanical Garden road/outer sidewalk X=-501.
+        // One continuous meadow, with no one-metre checker tiles.
         vec2 expoOffset = worldPosition.xz - vec2(-765.0, -130.0);
         float meadowRadius = length(expoOffset / vec2(1.0, 1.07));
         float meadow = 1.0 - smoothstep(180.0, 250.0, meadowRadius);
-        float broad = 0.5 + 0.5 * sin(worldPosition.x * 0.045) *
-                                  sin(worldPosition.z * 0.037);
-        float detail = sin(worldPosition.x * 0.21 + worldPosition.z * 0.16);
-        vec3 grass = mix(vec3(0.43, 0.54, 0.35), vec3(0.47, 0.58, 0.39), broad);
-        grass *= 1.0 + 0.012 * detail;
-        baseColor = mix(baseColor, grass, meadow);
+        baseColor = groundGrass(mix(vec3(0.415,0.505,0.335),
+                                   vec3(0.425,0.525,0.34),meadow),worldPosition.xz);
     }
 
     if (useTexture)
@@ -603,6 +623,7 @@ void main()
 
     if (premiumResidenceBrick)
     {
+        baseColor=buildingMineral(baseColor,worldPosition,normalize(worldNormal),0.0);
         // Scoped to the new residence's masonry batches; no texture asset or
         // changes to the established landmark materials are required.
         vec3 n = normalize(worldNormal);
@@ -621,18 +642,27 @@ void main()
 
     if (useGrass)
     {
-        // Soft world-space variation breaks up the flat color without harsh noise.
-        float broad = sin(worldPosition.x * 0.83) * sin(worldPosition.z * 0.76);
-        float fine = sin(worldPosition.x * 2.4 + worldPosition.z * 1.9);
-        baseColor *= 0.98 + 0.03 * broad + 0.012 * fine;
+        // Only horizontal lawn surfaces: preserve existing vegetation shading.
+        if(worldPosition.y<0.25 && normalize(worldNormal).y>0.85)
+            baseColor=groundGrass(baseColor,worldPosition.xz);
+        else {
+            float broad=sin(worldPosition.x*0.83)*sin(worldPosition.z*0.76);
+            float fine=sin(worldPosition.x*2.4+worldPosition.z*1.9);
+            baseColor*=0.98+0.03*broad+0.012*fine;
+        }
     }
 
-    if (useAsphalt)
-    {
-        // World-space variation is faint and stable across the street segments.
-        float broad = sin(worldPosition.x * 0.43) * sin(worldPosition.z * 0.51);
-        float fine = sin(worldPosition.x * 2.1 + worldPosition.z * 1.7);
-        baseColor *= 0.99 + 0.018 * broad + 0.006 * fine;
+    if (useAsphalt) baseColor=groundAsphalt(baseColor,worldPosition.xz);
+
+    // Explicit ground-only scope; approved landmark patterns stay in their paths.
+    if(genericPaving) {
+        vec3 n=normalize(worldNormal);
+        if(n.y>0.85 && !useTexture) baseColor=groundPaving(baseColor,worldPosition.xz);
+        else {
+            vec2 p=abs(n.y)>0.85?worldPosition.xz:
+                   (abs(n.x)>abs(n.z)?worldPosition.zy:worldPosition.xy);
+            baseColor=groundStoneFinish(baseColor,p);
+        }
     }
 
     // lightDirection describes the direction sunlight travels in world space.
@@ -655,6 +685,7 @@ void main()
         vec3 glass = objectColor * (0.86 + 0.14 * max(dot(normal, toLight), 0.0));
         float pane = sin(floor(uv.y) * 1.37 + floor(uv.x) * 1.79);
         glass *= 1.0 + 0.018 * pane;
+        sky=mix(sky,buildingEnvironment(reflection,objectColor),0.30);
         glass = mix(glass, sky, 0.30 + 0.40 * fresnel);
         float highlight = pow(max(dot(normal, normalize(toLight + viewDirection)), 0.0), 96.0);
         // Fine glazing seals align with the real curved members. Derivative
@@ -678,6 +709,7 @@ void main()
         vec3 environment = mix(vec3(0.69, 0.74, 0.76), vec3(0.55, 0.70, 0.80),
                                smoothstep(-0.12, 0.65, reflection.y));
         vec3 glass = objectColor * (0.82 + 0.18 * max(dot(normal, toLight), 0.0));
+        environment=mix(environment,buildingEnvironment(reflection,objectColor),0.25);
         glass = mix(glass, environment, 0.16 + 0.22 * fresnel);
         float highlight = pow(max(dot(normal, normalize(toLight + viewDirection)), 0.0), 64.0);
         // A single layer transmits 74-84% of the background. No emissive term,
@@ -699,8 +731,7 @@ void main()
                        smoothstep(-0.18, 0.70, reflection.y));
         float horizon = 1.0 - smoothstep(0.02, 0.35, abs(reflection.y));
         sky += vec3(0.035, 0.036, 0.032) * horizon;
-        vec3 glass = objectColor * (ambientStrength + diffuseStrength *
-                                    max(dot(normal, toLight), 0.0));
+        vec3 glass = objectColor * dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength);
         glass = mix(glass, sky, 0.26 + 0.34 * fresnel);
         float highlight = pow(max(dot(normal, normalize(toLight + viewDirection)), 0.0), 48.0);
         // Two panes still transmit roughly one third of the background face-on.
@@ -708,13 +739,15 @@ void main()
         fragColor = vec4(glass + vec3(0.82, 0.91, 0.93) * highlight * 0.10, opacity);
         return;
     }
-    vec3 color = baseColor * (ambientStrength + diffuseStrength * lambert);
+    float sunVisibilityFactor=sunVisibility(worldPosition,normal,toLight);
+    vec3 color = baseColor * dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength*sunVisibilityFactor);
 
     // The palace's north-facing white stone receives soft daylight fill.
     // The scene's sun direction and all other materials remain unchanged.
     if (akOrdaStone)
     {
-        color = baseColor * (0.79 + 0.21 * lambert);
+        color = buildingMineral(baseColor,worldPosition,normal,0.0) * mix(vec3(0.79+0.21*lambert),
+            dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength),0.45);
     }
 
     if (akOrdaRoof)
@@ -737,33 +770,22 @@ void main()
         float rippleVisibility = 1.0 - smoothstep(
             0.8, 2.0, fwidth(radius * 58.0)
         );
-        float fineRipple = sin(radius * 92.0 + sceneTime * 1.6);
-        vec3 water = baseColor * (0.90 + 0.025 * ripple * rippleVisibility
-                                + 0.008 * fineRipple * rippleVisibility);
-        vec3 viewDirection = normalize(worldViewDirection);
-        vec3 halfDirection = normalize(toLight + viewDirection);
-        float glint = pow(max(dot(normal, halfDirection), 0.0), 48.0);
-        color = water * (0.58 + 0.42 * lambert)
-              + vec3(0.07, 0.09, 0.10) * glint;
+        float finePhase=radius*92.0+sceneTime*1.6;
+        float fineVisibility=1.0-smoothstep(0.8,2.0,fwidth(finePhase));
+        vec2 radial=basinPoint/max(radius,0.001);
+        vec2 slope=radial*(0.022*cos(radius*58.0-sceneTime*2.5)*rippleVisibility+
+                          0.008*cos(finePhase)*fineVisibility);
+        vec3 waterNormal=normalize(vec3(-slope.x,1.0,-slope.y));
+        vec3 water=baseColor*(0.95+0.012*ripple*rippleVisibility);
+        color=shadeDayWater(water,waterNormal,0.28,0.07);
     }
 
     if (botanicalLake)
     {
-        // Low-amplitude world-space waves keep the shallow lake calm and opaque.
-        float broad = sin(worldPosition.x * 0.72 + sceneTime * 0.55)
-                    * sin(worldPosition.z * 0.88 - sceneTime * 0.42);
-        float finePhase = worldPosition.x * 2.1 + worldPosition.z * 1.4
-                        + sceneTime * 0.7;
-        float fineFade = 1.0 - smoothstep(0.5, 1.5, fwidth(finePhase));
-        vec3 water = baseColor *
-            (0.97 + 0.025 * broad + 0.008 * sin(finePhase) * fineFade);
-        vec3 viewDirection = normalize(worldViewDirection);
-        float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 3.0);
-        vec3 sky = vec3(0.55, 0.72, 0.79);
-        vec3 halfDirection = normalize(toLight + viewDirection);
-        float glint = pow(max(dot(normal, halfDirection), 0.0), 96.0);
-        color = mix(water * (0.72 + 0.28 * lambert), sky,
-                    0.08 + 0.16 * fresnel) + vec3(0.07) * glint;
+        // Quieter than the Esil; retain the garden's approved shallow-water palette.
+        vec2 tone=texture(groundDetail,worldPosition.xz/96.0).rg-0.5;
+        vec3 water=baseColor*(0.96+0.045*tone.y);
+        color=shadeDayWater(water,waterRippleNormal(worldPosition.xz,0.55,tone),0.36,0.075);
     }
 
     if (akOrdaWaterJet)
@@ -788,17 +810,7 @@ void main()
 
     if (shaftGlass)
     {
-        vec3 viewDirection = normalize(worldViewDirection);
-        vec3 reflection = reflect(-viewDirection, normal);
-        float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 5.0);
-        vec3 reflectedSky = mix(
-            vec3(0.55, 0.67, 0.72), vec3(0.65, 0.81, 0.93),
-            smoothstep(-0.2, 0.5, reflection.y)
-        );
-        vec3 halfDirection = normalize(toLight + viewDirection);
-        float highlight = pow(max(dot(normal, halfDirection), 0.0), 96.0);
-        color = mix(color, reflectedSky, 0.22 + 0.28 * fresnel);
-        color += vec3(0.70, 0.83, 0.91) * highlight * 0.35;
+        color=buildingGlass(baseColor,normal,worldViewDirection,toLight,ambientStrength,diffuseStrength);
     }
 
     if (nurAlemPodiumGlass)
@@ -968,7 +980,7 @@ void main()
         float paneVariation = 1.0 + 0.025 * sin(
             floor(grid.x) * 1.37 + floor(grid.y) * 2.03
         );
-        vec3 glass = baseColor * (ambientStrength + diffuseStrength * lambert);
+        vec3 glass = baseColor * dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength);
         vec3 viewDirection = normalize(worldViewDirection);
         vec3 reflection = reflect(-viewDirection, normal);
         float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 5.0);
@@ -976,6 +988,7 @@ void main()
             vec3(0.72, 0.72, 0.69), vec3(0.53, 0.74, 0.88),
             smoothstep(-0.2, 0.55, reflection.y)
         );
+        sky=mix(sky,buildingEnvironment(reflection,baseColor),0.60);
         color = mix(glass * paneVariation, sky, 0.38 + 0.24 * fresnel);
 
         vec3 halfDirection = normalize(toLight + viewDirection);
@@ -1005,7 +1018,8 @@ void main()
             vec3(0.55, 0.65, 0.72), vec3(0.61, 0.79, 0.91),
             smoothstep(-0.15, 0.55, reflection.y)
         );
-        vec3 glass = baseColor * (ambientStrength + diffuseStrength * lambert);
+        vec3 glass = baseColor * dayDiffuseLight(normal,toLight,ambientStrength,diffuseStrength);
+        reflectedSky=mix(reflectedSky,buildingEnvironment(reflection,baseColor),0.50);
         color = mix(glass * variation, reflectedSky, 0.30 + 0.24 * fresnel);
 
         vec3 halfDirection = normalize(toLight + viewDirection);
@@ -1022,7 +1036,7 @@ void main()
         // incorrectly washed out expanded districts even at walking range.
         // Object materials, lighting and the projection remain unaffected.
         float fade = smoothstep(750.0, 1000.0, length(worldViewDirection));
-        color = mix(color, vec3(0.65, 0.80, 0.92), fade);
+        color = mix(color, daySky(-worldViewDirection), fade);
     }
 
     fragColor = vec4(color, 1.0);

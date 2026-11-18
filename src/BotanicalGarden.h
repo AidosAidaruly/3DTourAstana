@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Math3D.h"
+#include "ShadowProxies.h"
+#include "TreeModels.h"
+#include "GrassDetail.h"
 
 #include <glad/glad.h>
 
@@ -30,7 +33,14 @@ public:
                      GLint useAsphaltLocation, GLint textureRepeatLocation,
                      GLuint stoneTexture) const;
 
+    void appendShadowProxies(ShadowProxies& proxies)const;
+    void appendTrees(TreeModels& models)const{models.append(treeSites);}
+    void appendGrass(GrassDetail& detail)const{detail.add(grassSite);}
+
 private:
+    ShadowProxies::Shapes treeShadowShapes;
+    std::vector<TreeModels::Planting> treeSites;
+    GrassDetail::Site grassSite;
     struct IndexRange
     {
         std::size_t firstIndex = 0;

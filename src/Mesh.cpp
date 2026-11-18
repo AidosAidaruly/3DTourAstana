@@ -1,4 +1,5 @@
 #include "Mesh.h"
+#include "LowVegetationGeometry.h"
 #include "Math3D.h"
 
 #include <array>
@@ -722,29 +723,13 @@ Mesh::Mesh()
             normal.x, normal.y, normal.z, 0, 0
         });
     };
-    auto appendPlantTriangle = [&appendPlantVertex](
-        Vec3 a, Vec3 b, Vec3 c, Vec3 normal)
-    {
-        appendPlantVertex(a, normal);
-        appendPlantVertex(b, normal);
-        appendPlantVertex(c, normal);
+    auto appendLowModel=[&](LowVegetationGeometry::Model type,Vec3 root,Vec3 scale,float yaw){
+        std::vector<LowVegetationGeometry::Vertex> points;
+        LowVegetationGeometry::bake(type,root,scale,yaw,[&](Vec3 p,Vec3 n){points.push_back({p,n});return GLuint(points.size()-1);},[&](GLuint a,GLuint b,GLuint c){for(auto i:{a,b,c})appendPlantVertex(points[i].p,points[i].n);});
     };
-    auto appendPlantStem = [&appendPlantTriangle](const Vec3& flower)
-    {
-        float x = flower.x;
-        float z = flower.z;
-        appendPlantTriangle({x - 0.025f, 0, z},
-                            {x + 0.025f, 0, z},
-                            {x + 0.025f, 0.17f, z}, {0, 0, 1});
-        appendPlantTriangle({x - 0.025f, 0, z},
-                            {x + 0.025f, 0.17f, z},
-                            {x - 0.025f, 0.17f, z}, {0, 0, 1});
-        appendPlantTriangle({x, 0, z - 0.025f},
-                            {x, 0, z + 0.025f},
-                            {x, 0.17f, z + 0.025f}, {1, 0, 0});
-        appendPlantTriangle({x, 0, z - 0.025f},
-                            {x, 0.17f, z + 0.025f},
-                            {x, 0.17f, z - 0.025f}, {1, 0, 0});
+    auto appendPlantStem=[&](const Vec3& flower){
+        ++LowVegetationGeometry::statistics().stems;
+        appendLowModel(LowVegetationGeometry::Stem,{flower.x,0,flower.z},{.12f,.20f,.12f},float(LowVegetationGeometry::seed(flower)%360)*pi/180);
     };
 
     for (const auto& colorGroup : parterreFlowers)
@@ -759,34 +744,9 @@ Mesh::Mesh()
 
     // Four raised petals make each blossom legible at walking height. All
     // blossoms of one color share a draw range rather than separate draws.
-    auto appendPetalTriangle = [&appendPlantTriangle](Vec3 a, Vec3 b, Vec3 c)
-    {
-        Vec3 normal = normalize(cross(b - a, c - a));
-        if (normal.y < 0)
-        {
-            Vec3 previousB = b;
-            b = c;
-            c = previousB;
-            normal = normalize(cross(b - a, c - a));
-        }
-        appendPlantTriangle(a, b, c, normal);
-    };
-    auto appendPlantBlossom = [&appendPetalTriangle](const Vec3& flower)
-    {
-        Vec3 crown{flower.x, 0.27f, flower.z};
-
-        for (int petal = 0; petal < 4; ++petal)
-        {
-            float angle = 0.5f * pi * petal;
-            Vec3 tip{flower.x + 0.34f * std::cos(angle), 0.16f,
-                     flower.z + 0.34f * std::sin(angle)};
-            Vec3 left{flower.x + 0.15f * std::cos(angle - 0.55f), 0.19f,
-                      flower.z + 0.15f * std::sin(angle - 0.55f)};
-            Vec3 right{flower.x + 0.15f * std::cos(angle + 0.55f), 0.19f,
-                       flower.z + 0.15f * std::sin(angle + 0.55f)};
-            appendPetalTriangle(crown, tip, left);
-            appendPetalTriangle(crown, right, tip);
-        }
+    auto appendPlantBlossom=[&](const Vec3& flower){
+        unsigned h=LowVegetationGeometry::seed(flower);++LowVegetationGeometry::statistics().heads;
+        appendLowModel(h%2?LowVegetationGeometry::HeadFive:LowVegetationGeometry::HeadSix,{flower.x,.20f,flower.z},{.19f,.09f,.19f},float(h%360)*pi/180);
     };
 
     for (std::size_t color = 0; color < parterreFlowers.size(); ++color)
@@ -915,6 +875,11 @@ Mesh::Mesh()
             }
         }
     }
+
+    // Shared low-shrub meshes replace only ceremonial landscaping spheres.
+    for(int type=0;type<4;++type){lowShrubFirst[type]=GLint(litVertices.size()/8);
+        appendLowModel(LowVegetationGeometry::Model(type),{0,-1,0},{1,2,1},0);
+        lowShrubCount[type]=GLsizei(litVertices.size()/8)-lowShrubFirst[type];}
 
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
@@ -1097,4 +1062,9 @@ void Mesh::drawFlowerBlossom() const
 {
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLES, flowerBlossomFirstVertex, 60);
+}
+
+void Mesh::drawLowShrub(int variant) const
+{
+    int type=std::clamp(variant,0,3);glBindVertexArray(vao);glDrawArrays(GL_TRIANGLES,lowShrubFirst[type],lowShrubCount[type]);
 }

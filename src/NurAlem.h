@@ -5,6 +5,8 @@
 #include <cstddef>
 
 // Closed glass sphere, tapered curtain-wall podium and batched exterior diagrid.
+class ShadowProxies;
+
 class NurAlem
 {
 public:
@@ -17,6 +19,8 @@ public:
     NurAlem(const NurAlem&) = delete;
     NurAlem& operator=(const NurAlem&) = delete;
     void render(GLint modelLocation, GLint colorLocation, GLint glassLocation, GLint facadeLocation) const;
+
+    void appendShadowProxies(ShadowProxies& proxies)const;
 
 private:
     struct Range { std::size_t first = 0; GLsizei count = 0; };

@@ -6,6 +6,8 @@
 #include <array>
 #include <vector>
 
+class SunShadows;
+
 class TalanTowers
 {
 public:
@@ -21,6 +23,8 @@ public:
         GLint objectColorLocation,
         GLint talanFacadeLocation
     ) const;
+
+    void renderShadow(const Mesh& mesh,SunShadows& shadows)const;
 
 private:
     struct TowerRange

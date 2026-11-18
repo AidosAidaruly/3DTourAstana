@@ -2,9 +2,13 @@
 
 ## Project Overview
 
+**Official project title:** 3D Tour to Astana
+
+**Team members:** Aidos Aidaruly and Nurislam Temirgaly.
+
 Astana3DTour is a Computer Graphics Fundamentals project being developed as an interactive 3D tour of selected landmarks in Astana, Kazakhstan.
 
-The current version is a Week 6 prototype. It provides the rendering, camera, and scene foundations for future landmarks; it is not a completed city or landmark tour.
+The current version is an interactive city walkthrough and fly-over with procedural landmarks, developed districts, landscaping and an optimized daylight renderer. It is a tour, with no missions, score, fail state or game-over screen.
 
 ## Technologies
 
@@ -17,14 +21,13 @@ The current version is a Week 6 prototype. It provides the rendering, camera, an
 
 ## Current Features
 
-- Interactive WASD movement and mouse-look camera controls.
-- A 400 × 400 ground plane with a procedural checkerboard pattern generated in the fragment shader.
-- A 100 × 60 light-gray central plaza, centered at the world origin, with its top at `y = 0.05` to avoid z-fighting.
-- Model, view, and perspective projection transformations.
-- Depth testing for correct surface visibility.
-- Modular C++ code for camera controls, mathematics, shaders, meshes, and scene rendering.
+- Walking, free flight, mouse look, sprinting and landmark teleports.
+- Procedural Astana landmarks, residential districts, connected roads, gardens and the Esil riverfront.
+- Daylight, local sun shadows, cinematic/anime sky selection, water animation, color grading and FXAA.
+- Static meshes, instancing, distance-based LOD, culling and cached rendering resources.
+- Resizable help/status overlays, animation pause and synchronized interactive sunlight.
 
-The world scale is 1 OpenGL unit = 1 meter. The origin `(0, 0, 0)` is reserved as the reference position for the future Baiterek monument. The camera starts at `(0, 3, 55)` with yaw `-90°` and pitch `-5°`.
+The world scale is 1 OpenGL unit = 1 meter. Baiterek is centered at the origin. The current startup viewpoint faces Khan Shatyr; key **1** visits Baiterek.
 
 ## Project Structure
 
@@ -36,14 +39,13 @@ The world scale is 1 OpenGL unit = 1 meter. The origin `(0, 0, 0)` is reserved a
 | `src/Camera.h` / `Camera.cpp` | Camera position and orientation, WASD movement, mouse look, and the view matrix. |
 | `src/Math3D.h` / `Math3D.cpp` | Vector operations, model transformations (translation, Y-axis rotation, and scaling), and perspective projection. |
 | `src/Shader.h` / `Shader.cpp` | Shader file loading, compilation, program linking, error reporting, program use, and uniform lookup. |
-| `src/Mesh.h` / `Mesh.cpp` | Reusable ground and cube geometry, VAO/VBO ownership, drawing, and resource cleanup. |
-| `src/Scene.h` / `Scene.cpp` | Ground and plaza placement, model matrices, colors, and scene rendering. |
-| `shaders/` | GLSL vertex and fragment shaders for the checkerboard ground and solid-color plaza. |
+| `src/Mesh.h` / `Mesh.cpp` | Reusable indexed geometry, VAO/VBO ownership, drawing, and resource cleanup. |
+| `src/Scene.h` / `Scene.cpp` | City integration, rendering coordination, lighting and effect state. |
+| `src/TourControls.h`, `TourOverlay.cpp/.h`, `ProjectInfo.h` | Help/status panels, animation clock, sun input and editable submission metadata. |
+| `shaders/` | Shared GLSL surface/material shaders; specialized rendering modules also contain GLSL. |
 | `include/GLFW/`, `include/glad/`, `include/KHR/` | Required third-party GLFW, GLAD, and Khronos headers. |
 | `src/glad.c` | Generated GLAD OpenGL loader implementation. |
 | `lib/glfw3.lib` | Existing GLFW library used by the native Debug x64 project. |
-
-The reusable cube geometry currently forms the thin plaza slab. No separate test cube is visible in the scene.
 
 The existing CMake files are retained, but their source list has not been updated for the modular architecture. Use the native Visual Studio solution for the current build workflow.
 
@@ -80,30 +82,31 @@ The executable is generated at `bin\x64\Debug\Astana3DTour.exe`. The project cop
 | **F** | Toggle free flight; returning to walking smoothly descends to the fixed 3 m eye height. Press F again to cancel the descent. |
 | **G** | In flight, toggle normal 5 m/s / fast 25 m/s travel. The fast-flight preference is remembered between flights. |
 | **Space / Left Ctrl** | Move up / down in free flight. |
+| **F1 / H** | Toggle the on-screen help panel; camera controls remain active. |
+| **F2** | Hide/show all overlays for an unobstructed scene. |
+| **P** | Pause/resume water and fountain animation, keeping navigation and FPS measurement active. |
+| **[ / ]** | Rotate sun azimuth by -/+15 degrees per press; hold does not repeat. |
+| **R** | Restore the approved default sunlight direction. |
+| **F6** | Toggle local real-time sunlight shadows (enabled initially). Holding the key toggles only once. |
+| **F7** | Toggle final tone mapping/color balance (enabled initially), independently of FXAA. |
+| **F8** | Toggle FXAA edge anti-aliasing (enabled initially). Both F7 and F8 OFF restore the original G7B output. |
+| **F9** | Switch between the default cinematic sky and optional anime sky. |
 | **1 / 2 / 3** | Teleport to Baiterek / Talan Towers / Khan Shatyr. |
 | **5** | Teleport to Ak Orda. |
 | **6** | Teleport to the Botanical Garden's east entrance, facing its center. |
 | **7** | Teleport to EXPO, facing Nur Alem and its east entrance. |
 | **8** | Teleport to MEGA Silk Way, facing its main entrance. |
-| **9** | Teleport to the Esil western promenade / future Atyrau Bridge approach, facing across the river. |
+| **9** | Teleport to the Esil western promenade / Atyrau Bridge approach, facing across the river. |
 | **ESC** | Exit the application. |
 
-Normal movement is 5 m/s, sprint is 15 m/s, fast flight is 25 m/s, and turbo flight is 50 m/s. Movement is frame-time based and combined horizontal/vertical input is normalized. Walking stays at a 3 m eye height above the ground after the smooth return from flight. On Atyrau Bridge it follows the raised deck at the same eye height; the existing flat-ground behavior elsewhere is unchanged. Mouse look is unchanged. The window title retains FPS and average frame time and shows the movement mode and speed, updated about once per second.
+Normal movement is 5 m/s, sprint is 15 m/s, fast flight is 25 m/s, and turbo flight is 50 m/s. Movement is frame-time based and combined horizontal/vertical input is normalized. Walking stays at a 3 m eye height above the ground after the smooth return from flight. On Atyrau Bridge it follows the raised deck at the same eye height; the existing flat-ground behavior elsewhere is unchanged. Mouse look is unchanged. The window title retains FPS and average frame time and shows the movement mode, speed and shadow toggle state, updated about once per second.
+
+G6 uses one local 2048² sunlight shadow map. See [Graphics G6A](docs/GraphicsG6A.md) for the initial scope, [Graphics G6B](docs/GraphicsG6B.md) for filtering/stability, and [Graphics G6C](docs/GraphicsG6C.md) for nearby landmark and vegetation casters. F6 toggles the whole shadow pass.
+
+[Graphics G7C](docs/GraphicsG7C.md) adds a mild, global final-image adjustment. [Graphics G8A](docs/GraphicsG8A.md) integrates FXAA into that same composite, independently controlled by F8. Both F7 and F8 OFF bypass the scene buffer and composite. The title shows F6, F7 and F8 states.
 
 The Esil River / Atyrau Bridge district occupies the **positive-X Baiterek side**, away from EXPO and MEGA. It includes recessed water and sloped banks, two stone promenades, the curved Atyrau Bridge with its 818-panel lattice canopy, riverside planting, urban furniture, four viewing terraces, garden paths and flowerbeds. Key 9 visits the western bridge approach. See [the district documentation](docs/EsilRiverDistrict.md) for coordinates, geometry and verification details.
 
-## Planned Features
+## Submission Readiness
 
-The following features are planned and are not implemented in the current prototype:
-
-- A simplified Baiterek monument at the world origin.
-- Surrounding buildings and pedestrian paths.
-- Talan Towers and Khan Shatyr.
-- Textures and lighting.
-- Hierarchical modeling and procedural modeling of scene objects.
-
-## Development Status
-
-The Week 6 prototype currently implements the interactive camera, checkerboard ground, central gray plaza, transformation matrices, depth testing, and modular rendering architecture.
-
-Landmarks, buildings, pedestrian paths, image textures, lighting, and hierarchical or procedural city models remain future development tasks. Development proceeds incrementally, with each stage kept small enough to build, inspect, and explain as part of the Computer Graphics Fundamentals project.
+See [the interactive requirements verification](docs/FinalRequirements.md) for the implemented controls, diagnostics and validation. Official project identification is maintained in `src/ProjectInfo.h` and displayed in the HUD and help overlay. The exact course topic sheet has not been reviewed; topic-specific technique compliance remains unverified.

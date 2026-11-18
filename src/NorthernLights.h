@@ -5,6 +5,8 @@
 #include <array>
 #include <cstddef>
 
+class SunShadows;
+
 // Opaque, static, batched curtain-wall trio and common three-level stylobate.
 class NorthernLights
 {
@@ -20,6 +22,7 @@ public:
     NorthernLights& operator=(const NorthernLights&)=delete;
     void render(GLint modelLocation,GLint colorLocation,GLint objectLocation,
                 GLint facadeLocation) const;
+    void renderShadow(SunShadows& shadows)const;
 private:
     struct Range {std::size_t first=0;GLsizei count=0;};
     std::array<Range,13> ranges{};

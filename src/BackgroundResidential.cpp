@@ -1,7 +1,12 @@
 #include "BackgroundResidential.h"
+#include "SkyAtmosphere.h"
+#include "GroundMaterials.h"
+#include "BuildingMaterials.h"
+#include <cstdint>
 #include "BackgroundCityExpansionPlan.h"
 #include "AstanaArenaParking.h"
 #include "Bench.h"
+#include "LowVegetationGeometry.h"
 #include "MediumResidenceGeometry.h"
 #include "SecondaryStreetPlan.h"
 #include "CentralDistrictPlan.h"
@@ -15,7 +20,7 @@ namespace
     using namespace BackgroundCityExpansionPlan;
     using Batches=std::array<Batch,MaterialCount>;
     struct InfillVertex {Vec3 p,n,color;float material;};
-    struct Combined {std::vector<InfillVertex> vertices;std::vector<GLuint> indices;};
+    struct Combined {std::vector<InfillVertex> vertices;std::vector<GLuint> indices;std::size_t vegetationFirst=0;GLsizei vegetationCount=0;};
     struct Instance {Vec3 position;float angle;Vec3 tint;float scaleY,scaleX,scaleZ;};
     Vec3 turn(Vec3 p,float angle){float a=angle*pi/180,c=std::cos(a),s=std::sin(a);return {c*p.x+s*p.z,p.y,-s*p.x+c*p.z};}
     Plan footprint(const Placement& p,float margin=0)
@@ -55,6 +60,7 @@ uniform vec3 eye;
 uniform vec3 lightDirection;
 uniform float ambientStrength,diffuseStrength;
 out vec3 worldPosition,worldNormal,worldViewDirection,baseColor,localPosition;
+out vec3 facadeBacking;
 flat out float kind;
 void main(){
  float c=cos(placement.w),s=sin(placement.w);
@@ -64,62 +70,144 @@ void main(){
  worldNormal=vec3(c*n.x+s*n.z,n.y,-s*n.x+c*n.z);
  worldPosition=world;localPosition=position;worldViewDirection=eye-world;
  baseColor=color*tintScale.rgb;kind=material;
+ facadeBacking=baseColor;
+ if((material>3.5&&material<4.5)||(material>=12.0&&material<14.0)){
+  int code=int(floor(fract(material)*40.0+0.5));
+  facadeBacking=facadeWall[code%4]*tintScale.rgb;
+ }
  // At city viewing distances each small pane has a constant facade normal.
  // Interpolated daylight/reflection avoids repeating it for every fragment.
  if(material>3.5&&material<4.5){
-  vec3 nn=normalize(worldNormal),v=normalize(worldViewDirection),light=normalize(-lightDirection);
-  vec3 reflection=reflect(-v,nn);
-  vec3 sky=mix(vec3(.55,.67,.72),vec3(.65,.81,.93),smoothstep(-.2,.5,reflection.y));
-  float fresnel=pow(1.0-max(dot(nn,v),0.0),5.0);
-  baseColor=mix(baseColor*(ambientStrength+diffuseStrength*max(dot(nn,light),0.0)),sky,.22+.28*fresnel);
+  int code=int(floor(fract(material)*40.0+0.5));
+  vec3 commonGlass=(code>=4?vec3(.31,.45,.51):vec3(.25,.40,.47))*tintScale.rgb;
+  float paneDetail=1.0-smoothstep(160.0,520.0,length(worldViewDirection));
+  baseColor=mix(commonGlass,baseColor,paneDetail);
+  baseColor=buildingGlass(baseColor,normalize(worldNormal),worldViewDirection,
+                          normalize(-lightDirection),ambientStrength,diffuseStrength);
  }
  gl_Position=projection*view*vec4(world,1.0);
+ // Simplified facades are layered decals (.008-.026 m apart), below the
+ // depth buffer's precision at city distances. Give ONLY these overlays a
+ // few depth-buffer steps of ordering, never move their world-space geometry.
+ float depthLayer=material>3.5&&material<4.5?0.0000006:
+                  material>=12.0&&material<13.0?0.00000015:
+                  material>=13.0&&material<14.0?0.0000003:0.0;
+ gl_Position.z-=depthLayer*gl_Position.w;
 })GLSL";
-    // Same ordinary daylight and opaque shaftGlass reflection as the existing
-    // city/vehicle shaders. Local material IDs fuse all facade materials into
+    // Shared G2 daylight and the same architectural glass as the main shader.
+    // Local material tags fuse all facade materials into
     // ONE indexed instanced draw per archetype/group, without global changes.
     const char* fragmentSource=R"GLSL(#version 330 core
 in vec3 worldPosition,worldNormal,worldViewDirection,baseColor,localPosition;
+in vec3 facadeBacking;
 flat in float kind;
 uniform vec3 lightDirection;
 uniform float ambientStrength,diffuseStrength;
 out vec4 fragColor;
 void main(){
- if(kind>3.5&&kind<4.5){fragColor=vec4(baseColor,1.0);return;}
+ // Footprint is in stable archetype metres, so rotation, nonuniform instance
+ // scaling, oblique views and resolution all receive the same pixel filtering.
+ vec3 pixel=fwidth(localPosition);
+ vec2 footprint=max(vec2(max(pixel.x,pixel.z),pixel.y),vec2(0.00001));
+ if(kind>3.5&&kind<4.5){
+  float pixels=min(2.1/footprint.x,2.4/footprint.y);
+  float detail=smoothstep(1.25,6.0,pixels);
+  vec3 backing=facadeBacking*dayDiffuseLight(normalize(worldNormal),normalize(-lightDirection),ambientStrength,diffuseStrength);
+  fragColor=vec4(mix(backing,baseColor,0.25+0.75*detail),1.0);return;
+ }
  vec3 n=normalize(worldNormal),light=normalize(-lightDirection),base=baseColor;
+ if((kind>1.5&&kind<2.5)||(kind>5.5&&kind<8.5))base=buildingMineral(base,worldPosition,n,kind>6.5&&kind<7.5?1.0:0.0);
  if(kind>1.5&&kind<2.5){
   float row=floor(localPosition.y/.23);
   float u=abs(n.x)>.5?localPosition.z:localPosition.x;
   vec2 p=vec2(u/.52+.5*mod(row,2.0),localPosition.y/.23);
-  vec2 edge=min(fract(p),1.0-fract(p));vec2 aa=max(fwidth(p),vec2(.001));
-  float mortar=1.0-min(smoothstep(.018,.018+aa.x,edge.x),smoothstep(.028,.028+aa.y,edge.y));
-  base=mix(base,base*1.18,mortar*.35);
+  vec2 aa=fwidth(p);
+  float mortar=max(groundJoint(p.x,aa.x,.015),groundJoint(p.y,aa.y,.035));
+  base=mix(base,base*1.20,mortar*.40);
  }
  if(kind>2.5&&kind<3.5){
-  vec2 p=worldPosition.xz/vec2(1.6,.8);p.x+=.5*mod(floor(p.y),2.0);
-  vec2 edge=min(fract(p),1.0-fract(p)),aa=max(fwidth(p),vec2(.001));
-  float seam=1.0-min(smoothstep(.012,.012+aa.x,edge.x),smoothstep(.018,.018+aa.y,edge.y));
-  float variation=fract(sin(dot(floor(p),vec2(12.9898,78.233)))*43758.5453);
-  base*=.97+.045*variation;base=mix(base,base*.72,seam*.65);
+  base=groundPaving(base,worldPosition.xz);
  }
- vec3 color=base*(ambientStrength+diffuseStrength*max(dot(n,light),0.0));
+ float visibility=kind>.5&&kind<1.5?1.0:sunVisibility(worldPosition,n,light);
+ vec3 color=base*dayDiffuseLight(n,light,ambientStrength,diffuseStrength*visibility);
  if(kind>.5&&kind<1.5){
-  vec3 v=normalize(worldViewDirection),reflection=reflect(-v,n);
-  float fresnel=pow(1.0-max(dot(n,v),0.0),5.0);
-  vec3 sky=mix(vec3(.55,.67,.72),vec3(.65,.81,.93),smoothstep(-.2,.5,reflection.y));
-  color=mix(color,sky,.22+.28*fresnel);
-  color+=vec3(.70,.83,.91)*pow(max(dot(n,normalize(light+v)),0.0),96.0)*.35;
+  color=buildingGlass(base,n,worldViewDirection,light,ambientStrength,diffuseStrength);
+ }
+ else if(kind>4.5&&kind<5.5)color+=visibility*dayMetalHighlight(n,light,worldViewDirection,.55,.055);
+ else if(kind>8.5&&kind<9.5){
+  vec3 reflected=buildingEnvironment(reflect(-normalize(worldViewDirection),n),base);
+  color=mix(color,reflected,.055)+visibility*dayMetalHighlight(n,light,worldViewDirection,.6,.055);
+ }
+ if(kind>=12.0&&kind<14.0){
+  bool frame=kind<13.0;
+  float pixels=frame?0.055/max(footprint.x,footprint.y):0.16/footprint.y;
+  float detail=frame?smoothstep(0.25,1.15,pixels):smoothstep(0.35,1.20,pixels);
+  vec3 backing=facadeBacking*dayDiffuseLight(n,light,ambientStrength,diffuseStrength*visibility);
+  color=mix(backing,color,frame?detail:0.15+0.85*detail);
+  if(frame)color+=detail*visibility*dayMetalHighlight(n,light,worldViewDirection,.6,.055);
  }
  fragColor=vec4(color,1.0);
 })GLSL";
     GLuint compile(GLenum type,const char* source)
-    {GLuint shader=glCreateShader(type);glShaderSource(shader,1,&source,nullptr);glCompileShader(shader);GLint ok=0;glGetShaderiv(shader,GL_COMPILE_STATUS,&ok);
+    {std::string text=type==GL_FRAGMENT_SHADER?DayAtmosphere::fragmentSource(source):source;if(type==GL_VERTEX_SHADER){
+        std::string palette="const vec3 facadeWall[4]=vec3[4](";
+        for(int m=0;m<4;++m){auto c=colors[m];if(m)palette+=",";palette+="vec3("+std::to_string(c.x)+","+std::to_string(c.y)+","+std::to_string(c.z)+")";}palette+=");\n";
+        text.insert(text.find('\n')+1,palette+DayAtmosphere::daylightSource()+BuildingMaterials::commonSource());}const char* ptr=text.c_str();
+        GLuint shader=glCreateShader(type);glShaderSource(shader,1,&ptr,nullptr);glCompileShader(shader);GLint ok=0;glGetShaderiv(shader,GL_COMPILE_STATUS,&ok);
         if(!ok){char log[4096]{};glGetShaderInfoLog(shader,4096,nullptr,log);glDeleteShader(shader);throw std::runtime_error(std::string("Background residential shader: ")+log);}return shader;}
-    Combined combine(const Batches& batches,int lod=-1)
+    // Stable per-pane colors, baked once into the existing color attribute.
+    // Quantize only facade coordinates: recess depth changes between LODs do
+    // not change the window identity. No positions, normals or indices change.
+    Vec3 paneColor(const Batch& batch,std::size_t vertex,Vec3 base)
+    {
+        std::size_t first=(vertex/4)*4;Vec3 center{};
+        for(std::size_t i=first;i<first+4;++i)center=center+batch.vertices[i].p*.25f;
+        Vec3 normal=batch.vertices[first].n;
+        float across=std::abs(normal.x)>.5f?center.z:center.x;
+        std::uint32_t x=static_cast<std::uint32_t>(static_cast<int>(std::lround(across*8)));
+        std::uint32_t y=static_cast<std::uint32_t>(static_cast<int>(std::lround(center.y*8)));
+        std::uint32_t hash=x*0x8da6b343u+y*0xd8163841u;hash^=hash>>16;hash*=0x7feb352du;hash^=hash>>15;
+        float tone=.95f+.10f*float(hash&255u)/255.0f;if((hash>>8)%17==0)tone*=.78f;
+        // A restrained coating gradient gives each existing pane depth. All
+        // LODs share the same corners and interpolate it without new attributes.
+        tone*=batch.vertices[vertex].p.y>center.y?1.08f:.90f;
+        float tint=(float((hash>>16)&255u)/255.0f-.5f)*.025f;
+        return {base.x*tone*(1-tint),base.y*tone,base.z*tone*(1+tint)};
+    }
+    // Initialization-only material metadata in the EXISTING scalar kind:
+    // 4 = vertex-lit glass, 12 = surround, 13 = floor band. Fractions encode
+    // the adjacent wall palette (plus four for lighter loggia glazing).
+    // Positions, normals, color attributes, indices and vertex stride survive.
+    float filteredKind(const Batch& batch,std::size_t vertex,int material,const Archetype& s,float kind)
+    {
+        std::size_t first=(vertex/4)*4;if(first+4>batch.vertices.size())return kind;
+        Vec3 center{};float bottom=1e9f,top=-1e9f;
+        for(std::size_t i=first;i<first+4;++i){auto p=batch.vertices[i].p;center=center+p*.25f;bottom=std::min(bottom,p.y);top=std::max(top,p.y);}
+        auto n=batch.vertices[first].n;if(std::abs(n.y)>.01f)return kind;
+        int floor=center.y<level(1)?0:std::clamp(1+int((center.y-level(1))/storey),1,s.floors-1);
+        auto b=geometry(s);
+        for(auto f:facades(b,floor))if(dot(f.normal,n)>.99f){
+            float pitch=f.length/f.bays,across=dot(center-f.origin,f.tangent),depth=dot(center-f.origin,f.normal);
+            int bay=std::clamp(int(across/pitch),0,f.bays-1),wall=wallMaterial(s,floor,bay,f.side);
+            if(material==Glass||material==GlassLight)return 4.0f+float(wall+(material==GlassLight?4:0))*.025f;
+            if(material==Metal&&depth>.005f&&depth<.045f)return 12.0f+wall*.025f;
+            if(material==Stone&&std::abs(top-bottom-.16f)<.001f)return 13.0f+wall*.025f;
+        }return kind;
+    }
+    Combined combine(const Batches& batches,int lod=-1,const Archetype* spec=nullptr)
     {
         Combined mesh;for(int m=0;m<MaterialCount;++m){const auto& b=batches[m];GLuint start=static_cast<GLuint>(mesh.vertices.size());
-            float kind=m==Glass||m==GlassLight?(lod>0?4.0f:1.0f):(m==Brick||m==BrickAlt)&&lod<=0?2.0f:m==Paving?3.0f:0.0f;
-            for(auto v:b.vertices)mesh.vertices.push_back({v.p,v.n,colors[m],kind});for(auto i:b.indices)mesh.indices.push_back(start+i);}
+            if(lod<0&&m==Wood)mesh.vegetationFirst=mesh.indices.size();
+            bool glazing=m==Glass||m==GlassLight;
+            float kind=glazing?(lod>0?4.0f:1.0f):(m==Brick||m==BrickAlt)?(lod<=0?2.0f:8.0f):
+                m==Paving?3.0f:m==Metal?(lod>=0?9.0f:5.0f):(m==Stone||m==Ivory)&&lod>=0?6.0f:m==Roof&&lod>=0?7.0f:0.0f;
+            if(glazing&&b.vertices.size()%4)throw std::runtime_error("Glass pane batch is not quad based");
+            for(std::size_t i=0;i<b.vertices.size();++i){auto v=b.vertices[i];
+                Vec3 color=glazing?paneColor(b,i,colors[m]):colors[m];
+                float tag=lod>0&&spec?filteredKind(b,i,m,*spec,kind):kind;
+                mesh.vertices.push_back({v.p,v.n,color,tag});}
+            for(auto i:b.indices)mesh.indices.push_back(start+i);}
+        if(lod<0)mesh.vegetationCount=static_cast<GLsizei>(mesh.indices.size()-mesh.vegetationFirst);
         for(auto v:mesh.vertices)if(!std::isfinite(dot(v.p,v.p))||!std::isfinite(dot(v.n,v.n))||std::abs(dot(v.n,v.n)-1)>.002f)throw std::runtime_error("Invalid infill vertex");
         for(std::size_t i=0;i<mesh.indices.size();i+=3){for(int j=0;j<3;++j)if(mesh.indices[i+j]>=mesh.vertices.size())throw std::runtime_error("Invalid infill index");
             auto a=mesh.vertices[mesh.indices[i]],b=mesh.vertices[mesh.indices[i+1]],c=mesh.vertices[mesh.indices[i+2]];
@@ -137,7 +225,8 @@ void main(){
                 // A single dark surround behind the existing pane replaces
                 // four separately bounded frame strips. Two shared triangles.
                 f.panel(batches[Metal],mid-w*.5f-.055f,mid+w*.5f+.055f,bottom-.055f,top+.055f,.010f);
-                f.panel(batches[Metal],mid-.025f,mid+.025f,bottom,top,.028f);
+                // 5 cm center mullions are subpixel at the medium threshold;
+                // retain them in the untouched near mesh only.
                 if(loggia)f.panel(batches[GlassLight],mid-w*.5f+.08f,mid+w*.5f-.08f,y+.30f,y+1.14f,.035f);
             }
         }
@@ -177,13 +266,10 @@ void main(){
     }
     void foliage(Batch& b,Vec3 center,Vec3 scale)
     {
-        constexpr int sides=8;constexpr float heights[]={-1,-.4f,.5f,1},radii[]={0,.90f,.75f,0};
-        for(int ring=0;ring<3;++ring)for(int i=0;i<sides;++i){auto at=[&](int r,int side){float a=2*pi*side/sides;return center+Vec3{radii[r]*std::cos(a)*scale.x,heights[r]*scale.y,radii[r]*std::sin(a)*scale.z};};
-            Vec3 p=at(ring,i),q=at(ring,i+1),r=at(ring+1,i),s=at(ring+1,i+1);
-            auto add=[&](Vec3 a,Vec3 c,Vec3 d){Vec3 n=cross(c-a,d-a);if(dot(n,n)<1e-8f)return;n=normalize(n);if(dot(n,(a+c+d)*(1.0f/3)-center)<0)n=n*-1;triangle(b,a,c,d,n);};add(p,q,r);add(q,s,r);}
+        LowVegetationGeometry::shrub(center,scale,[&](Vec3 p,Vec3 n){GLuint i=GLuint(b.vertices.size());b.vertices.push_back({p,n,p.x/12,p.z/12});return i;},[&](GLuint a,GLuint c,GLuint d){b.indices.insert(b.indices.end(),{a,c,d});});
     }
     struct SiteCounts {unsigned trees=0,shrubs=0,benches=0;};
-    Combined site(int index,SiteCounts& counts)
+    Combined site(int index,SiteCounts& counts,std::vector<TreeModels::Planting>& treeSites)
     {
         const auto& g=groups[index];Batches b;std::vector<Plan> paths;
         auto join=[&](Vec3 p,Vec3 q){if(std::abs(p.x-q.x)>.001f)paths.push_back({std::min(p.x,q.x),std::max(p.x,q.x),p.z-2,p.z+2});
@@ -225,7 +311,7 @@ void main(){
         for(auto offset:candidates){if(counts.trees==3)break;Vec3 p=g.hub+offset;
             Plan footprint{p.x-2,p.x+2,p.z-2.8f,p.z+2.8f};
             if(index>=legacyGroups&&!clear(footprint))continue;
-            box(b[Wood],p+Vec3{0,1.5f,0},{.22f,3,.22f});foliage(b[Leaves],p+Vec3{0,3.8f,0},{1.7f,2.2f,1.7f});++counts.trees;
+            treeSites.push_back(TreeModels::planting(p,1.7f,6.0f,0,true));++counts.trees;
             for(float dz:{-2.0f,2.0f}){foliage(b[Leaves],p+Vec3{0,.42f,dz},{.65f,.40f,.65f});++counts.shrubs;}
             planted.push_back(footprint);
         }
@@ -250,7 +336,7 @@ BackgroundResidential::BackgroundResidential()
         glVertexAttribPointer(3,1,GL_FLOAT,GL_FALSE,sizeof(InfillVertex),reinterpret_cast<void*>(offsetof(InfillVertex,material)));glEnableVertexAttribArray(3);};
     // A temporary VAO owns EBO bindings during uploads in core profile.
     GLuint scratch=0;glGenVertexArrays(1,&scratch);glBindVertexArray(scratch);
-    for(int type=0;type<archetypeCount;++type)for(int lod=0;lod<3;++lod){Batches batches;residence(batches,archetypes[type],lod==1?2:lod);if(lod==1)mediumFrames(batches,archetypes[type]);auto mesh=combine(batches,lod);upload(meshes[type][lod],mesh);
+    for(int type=0;type<archetypeCount;++type)for(int lod=0;lod<3;++lod){Batches batches;residence(batches,archetypes[type],lod==1?2:lod);if(lod==1)mediumFrames(batches,archetypes[type]);auto mesh=combine(batches,lod,&archetypes[type]);upload(meshes[type][lod],mesh);
         stats.meshTriangles[lod]+=mesh.indices.size()/3;for(auto p:placements)if(p.type==type)stats.allBuildingTriangles[lod]+=mesh.indices.size()/3;}
     std::array<Instance,buildingCount> instances{};std::size_t count=0;
     for(int group=0;group<groupCount;++group)for(int type=0;type<archetypeCount;++type){auto& range=groups[group].types[type];range.first=count;
@@ -267,7 +353,7 @@ BackgroundResidential::BackgroundResidential()
                 glVertexAttribPointer(4,4,GL_FLOAT,GL_FALSE,sizeof(Instance),reinterpret_cast<void*>(start));glEnableVertexAttribArray(4);glVertexAttribDivisor(4,1);
                 glVertexAttribPointer(5,4,GL_FLOAT,GL_FALSE,sizeof(Instance),reinterpret_cast<void*>(start+offsetof(Instance,tint)));glEnableVertexAttribArray(5);glVertexAttribDivisor(5,1);
                 glVertexAttribPointer(6,2,GL_FLOAT,GL_FALSE,sizeof(Instance),reinterpret_cast<void*>(start+offsetof(Instance,scaleX)));glEnableVertexAttribArray(6);glVertexAttribDivisor(6,1);}}
-        glGenVertexArrays(1,&group.siteVao);glBindVertexArray(group.siteVao);SiteCounts counts;auto mesh=site(g,counts);
+        glGenVertexArrays(1,&group.siteVao);glBindVertexArray(group.siteVao);SiteCounts counts;auto mesh=site(g,counts,treeSites);group.vegetationFirst=mesh.vegetationFirst;group.vegetationCount=mesh.vegetationCount;
         if(g>=legacyGroups){stats.expansionTrees+=counts.trees;stats.expansionShrubs+=counts.shrubs;stats.expansionBenches+=counts.benches;}
         for(auto v:mesh.vertices){x0=std::min(x0,v.p.x);x1=std::max(x1,v.p.x);z0=std::min(z0,v.p.z);z1=std::max(z1,v.p.z);}
         group.center={(x0+x1)*.5f,height*.5f,(z0+z1)*.5f};group.extent={(x1-x0)*.5f,height*.5f,(z1-z0)*.5f};upload(group.site,mesh);attributes();stats.siteTriangles+=mesh.indices.size()/3;
@@ -277,6 +363,8 @@ BackgroundResidential::BackgroundResidential()
     try{fs=compile(GL_FRAGMENT_SHADER,fragmentSource);}catch(...){glDeleteShader(vs);throw;}
     program=glCreateProgram();glAttachShader(program,vs);glAttachShader(program,fs);glLinkProgram(program);glDeleteShader(vs);glDeleteShader(fs);GLint ok=0;glGetProgramiv(program,GL_LINK_STATUS,&ok);
     if(!ok){char log[4096]{};glGetProgramInfoLog(program,4096,nullptr,log);throw std::runtime_error(std::string("Background residential link: ")+log);}
+    GroundMaterials::configure(program);
+    shadowReceiver=SunShadows::receiver(program);
     viewLocation=glGetUniformLocation(program,"view");projectionLocation=glGetUniformLocation(program,"projection");eyeLocation=glGetUniformLocation(program,"eye");
     lightLocation=glGetUniformLocation(program,"lightDirection");ambientLocation=glGetUniformLocation(program,"ambientStrength");diffuseLocation=glGetUniformLocation(program,"diffuseStrength");
 }
@@ -285,7 +373,7 @@ BackgroundResidential::~BackgroundResidential()
     for(auto& g:groups){for(auto t:g.types)for(auto vao:t.vao)if(vao)glDeleteVertexArrays(1,&vao);glDeleteVertexArrays(1,&g.siteVao);glDeleteBuffers(1,&g.site.vbo);glDeleteBuffers(1,&g.site.ebo);}
     for(auto& type:meshes)for(auto& m:type){glDeleteBuffers(1,&m.vbo);glDeleteBuffers(1,&m.ebo);}glDeleteBuffers(1,&instanceBuffer);glDeleteProgram(program);
 }
-void BackgroundResidential::render(const Mat4& view,const Mat4& projection,Vec3 light,float ambient,float diffuse)const
+void BackgroundResidential::render(const Mat4& view,const Mat4& projection,Vec3 light,float ambient,float diffuse,const SunShadows* shadows)const
 {
     Vec3 eye{-(view[0]*view[12]+view[1]*view[13]+view[2]*view[14]),-(view[4]*view[12]+view[5]*view[13]+view[6]*view[14]),-(view[8]*view[12]+view[9]*view[13]+view[10]*view[14])};
     if(!viewValid||view!=lastView||projection!=lastProjection){Mat4 clip{};for(int c=0;c<4;++c)for(int r=0;r<4;++r)for(int k=0;k<4;++k)clip[c*4+r]+=projection[k*4+r]*view[c*4+k];
@@ -295,8 +383,8 @@ void BackgroundResidential::render(const Mat4& view,const Mat4& projection,Vec3 
                 if(nx*group.center.x+ny*group.center.y+nz*group.center.z+w+std::abs(nx)*group.extent.x+std::abs(ny)*group.extent.y+std::abs(nz)*group.extent.z<0)group.visible=false;}
             if(!group.visible)continue;float distance2=1e20f;
             for(auto p:placements)if(p.group==g){auto b=footprint(p);float dx=std::max({b.x0-eye.x,eye.x-b.x1,0.0f}),dz=std::max({b.z0-eye.z,eye.z-b.z1,0.0f}),dy=std::max({-eye.y,eye.y-(level(archetypes[p.type].floors)+1.3f)*p.scaleY,0.0f});distance2=std::min(distance2,dx*dx+dy*dy+dz*dz);}
-            float d=std::sqrt(distance2);if(group.lod<0)group.lod=d>300?2:d>110?1:0;
-            if(group.lod==0&&d>130)group.lod=1;if(group.lod==1&&d>300)group.lod=2;if(group.lod==2&&d<245)group.lod=1;if(group.lod==1&&d<90)group.lod=0;
+            float d=std::sqrt(distance2);if(group.lod<0)group.lod=d>280?2:d>110?1:0;
+            if(group.lod==0&&d>130)group.lod=1;if(group.lod==1&&d>280)group.lod=2;if(group.lod==2&&d<230)group.lod=1;if(group.lod==1&&d<90)group.lod=0;
             unsigned population=0;for(auto t:group.types)population+=t.count;stats.visibleBuildings+=population;stats.visibleLods[group.lod]+=population;stats.triangles+=group.site.count/3;++stats.draws;
             for(int t=0;t<archetypeCount;++t)if(group.types[t].count){stats.triangles+=std::size_t(meshes[t][group.lod].count/3)*group.types[t].count;++stats.draws;}
         }lastView=view;lastProjection=projection;viewValid=true;
@@ -310,10 +398,32 @@ void BackgroundResidential::render(const Mat4& view,const Mat4& projection,Vec3 
     GLboolean offset=glIsEnabled(GL_POLYGON_OFFSET_FILL);GLfloat factor,units;glGetFloatv(GL_POLYGON_OFFSET_FACTOR,&factor);glGetFloatv(GL_POLYGON_OFFSET_UNITS,&units);
     glUseProgram(program);glUniformMatrix4fv(viewLocation,1,GL_FALSE,view.data());glUniformMatrix4fv(projectionLocation,1,GL_FALSE,projection.data());
     glUniform3f(eyeLocation,eye.x,eye.y,eye.z);glUniform3f(lightLocation,light.x,light.y,light.z);glUniform1f(ambientLocation,ambient);glUniform1f(diffuseLocation,diffuse);
+    if(shadows)shadows->apply(shadowReceiver);else glUniform1i(shadowReceiver.enabled,GL_FALSE);
     glDisable(GL_POLYGON_OFFSET_FILL);
     for(const auto& group:groups)if(group.visible)for(int type=0;type<archetypeCount;++type){const auto& range=group.types[type];if(range.count){glBindVertexArray(range.vao[group.lod]);glDrawElementsInstanced(GL_TRIANGLES,meshes[type][group.lod].count,GL_UNSIGNED_INT,nullptr,range.count);}}
     glEnable(GL_POLYGON_OFFSET_FILL);glPolygonOffset(-1,-1);
     for(const auto& group:groups)if(group.visible){glBindVertexArray(group.siteVao);glVertexAttrib4f(4,0,0,0,0);glVertexAttrib4f(5,1,1,1,1);glVertexAttrib2f(6,1,1);glDrawElements(GL_TRIANGLES,group.site.count,GL_UNSIGNED_INT,nullptr);}
     glVertexAttrib4fv(4,oldPlacement);glVertexAttrib4fv(5,oldTint);glVertexAttrib4fv(6,oldScale);
     glPolygonOffset(factor,units);if(!offset)glDisable(GL_POLYGON_OFFSET_FILL);glBindVertexArray(static_cast<GLuint>(oldVao));glUseProgram(static_cast<GLuint>(oldProgram));
+}
+
+void BackgroundResidential::renderShadow(SunShadows& shadows)const
+{
+    shadows.instanced(true);
+    // Cull in the LIGHT frustum, not the camera frustum: off-screen buildings
+    // can cast visible shadows. Never mutate the color pass's cached visibility.
+    for(const auto& group:groups)if(shadows.intersects(group.center,group.extent))
+        for(int type=0;type<archetypeCount;++type){const auto& range=group.types[type];if(!range.count)continue;
+            constexpr int lod=SunShadows::Settings::casterLod;
+            glBindVertexArray(range.vao[lod]);
+            glDrawElementsInstanced(GL_TRIANGLES,meshes[type][lod].count,GL_UNSIGNED_INT,nullptr,range.count);
+            shadows.record(meshes[type][lod].count,range.count);shadows.countCasters(range.count);
+        }
+    static const Mat4 identity=modelMatrix({0,0,0},0,{1,1,1});shadows.instanced(false);
+    glUniformMatrix4fv(shadows.modelLocation(),1,GL_FALSE,identity.data());
+    for(const auto& group:groups)if(group.vegetationCount&&shadows.intersects(group.center,group.extent)){
+        glBindVertexArray(group.siteVao);glDrawElements(GL_TRIANGLES,group.vegetationCount,GL_UNSIGNED_INT,reinterpret_cast<void*>(group.vegetationFirst*sizeof(GLuint)));
+        shadows.record(group.vegetationCount);
+    }
+
 }

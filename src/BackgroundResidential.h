@@ -1,5 +1,7 @@
 #pragma once
 #include "Math3D.h"
+#include "SunShadows.h"
+#include "TreeModels.h"
 #include "BackgroundCityExpansionPlan.h"
 #include <glad/glad.h>
 #include <array>
@@ -20,20 +22,24 @@ public:
     ~BackgroundResidential();
     BackgroundResidential(const BackgroundResidential&)=delete;
     BackgroundResidential& operator=(const BackgroundResidential&)=delete;
-    void render(const Mat4& view,const Mat4& projection,Vec3 light,float ambient,float diffuse)const;
+    void render(const Mat4& view,const Mat4& projection,Vec3 light,float ambient,float diffuse,const SunShadows* shadows=nullptr)const;
+    void renderShadow(SunShadows& shadows)const;
     const Statistics& statistics()const{return stats;}
+    void appendTrees(TreeModels& models)const{models.append(treeSites);}
 private:
     struct Mesh {GLuint vbo=0,ebo=0;GLsizei count=0;};
     struct Instances {std::size_t first=0;GLsizei count=0;std::array<GLuint,3> vao{};};
     struct Group {
         Vec3 center{},extent{};std::array<Instances,BackgroundCityExpansionPlan::archetypeCount> types{};
-        Mesh site;GLuint siteVao=0;mutable int lod=-1;mutable bool visible=false;
+        Mesh site;GLuint siteVao=0;std::size_t vegetationFirst=0;GLsizei vegetationCount=0;mutable int lod=-1;mutable bool visible=false;
     };
     std::array<std::array<Mesh,3>,BackgroundCityExpansionPlan::archetypeCount> meshes{};
     std::array<Group,BackgroundCityExpansionPlan::groupCount> groups{};
     mutable Statistics stats;
     GLuint program=0,instanceBuffer=0;
+    SunShadows::Receiver shadowReceiver{};
     GLint viewLocation=-1,projectionLocation=-1,eyeLocation=-1,lightLocation=-1,ambientLocation=-1,diffuseLocation=-1;
     mutable bool viewValid=false;
     mutable Mat4 lastView{},lastProjection{};
+    std::vector<TreeModels::Planting> treeSites;
 };

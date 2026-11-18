@@ -172,14 +172,14 @@ CityRoadNetwork::CityRoadNetwork()
     glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(Vertex),reinterpret_cast<void*>(offsetof(Vertex,u)));glEnableVertexAttribArray(2);glBindVertexArray(0);
 }
 CityRoadNetwork::~CityRoadNetwork(){glDeleteBuffers(1,&ebo);glDeleteBuffers(1,&vbo);glDeleteVertexArrays(1,&vao);}
-void CityRoadNetwork::render(GLint modelLocation,GLint colorLocation,GLint objectLocation,GLint asphaltLocation,GLint grassLocation) const
+void CityRoadNetwork::render(GLint modelLocation,GLint colorLocation,GLint objectLocation,GLint asphaltLocation,GLint grassLocation,GLint pavingLocation) const
 {
     static const Mat4 identity=modelMatrix({0,0,0},0,{1,1,1});
     constexpr std::array<Vec3,4> colors{{{.25f,.27f,.28f},{.75f,.76f,.73f},{.29f,.43f,.26f},{.85f,.86f,.81f}}};
     GLboolean offset=glIsEnabled(GL_POLYGON_OFFSET_FILL);GLfloat factor,units;glGetFloatv(GL_POLYGON_OFFSET_FACTOR,&factor);glGetFloatv(GL_POLYGON_OFFSET_UNITS,&units);
     glEnable(GL_POLYGON_OFFSET_FILL);glUniformMatrix4fv(modelLocation,1,GL_FALSE,identity.data());glUniform1i(objectLocation,GL_TRUE);glBindVertexArray(vao);
-    for(std::size_t i=0;i<ranges.size();++i){glUniform1i(asphaltLocation,i==Asphalt);glUniform1i(grassLocation,i==Grass);glUniform3f(colorLocation,colors[i].x,colors[i].y,colors[i].z);
+    for(std::size_t i=0;i<ranges.size();++i){glUniform1i(asphaltLocation,i==Asphalt);glUniform1i(grassLocation,i==Grass);glUniform1i(pavingLocation,i==Stone);glUniform3f(colorLocation,colors[i].x,colors[i].y,colors[i].z);
         glPolygonOffset(-1,i==Paint?-2.0f:-1.0f);glDrawElements(GL_TRIANGLES,ranges[i].count,GL_UNSIGNED_INT,reinterpret_cast<void*>(ranges[i].first*sizeof(GLuint)));}
-    glBindVertexArray(0);glUniform1i(asphaltLocation,GL_FALSE);glUniform1i(grassLocation,GL_FALSE);glUniform1i(objectLocation,GL_FALSE);
+    glBindVertexArray(0);glUniform1i(pavingLocation,GL_FALSE);glUniform1i(asphaltLocation,GL_FALSE);glUniform1i(grassLocation,GL_FALSE);glUniform1i(objectLocation,GL_FALSE);
     glPolygonOffset(factor,units);if(!offset)glDisable(GL_POLYGON_OFFSET_FILL);
 }

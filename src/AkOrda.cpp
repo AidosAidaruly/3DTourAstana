@@ -1,4 +1,6 @@
 #include "AkOrda.h"
+#include "SunShadows.h"
+#include "ShadowProxies.h"
 
 #include <array>
 #include <cmath>
@@ -719,4 +721,20 @@ void AkOrda::render(const Mesh& mesh, GLint modelLocation,
     glUniform3f(objectColorLocation, 0.96f, 0.79f, 0.34f);
     mesh.drawSphere();
     glUniform1i(roofMaterialLocation, GL_FALSE);
+}
+
+void AkOrda::appendShadowProxies(ShadowProxies& proxies)const
+{
+    proxies.beginLandmark();for(const auto& part:stoneParts)proxies.add(ShadowProxies::Box,part.model);
+    for(const auto& part:facadeParts)if(part.stoneMaterial)proxies.add(ShadowProxies::Box,part.model);
+}
+
+void AkOrda::renderShadow(SunShadows& shadows)const
+{
+    if(!shadows.intersects({landmarkModel[12],landmarkModel[13]+27,landmarkModel[14]},{75,28,55}))return;
+    shadows.instanced(false);glUniformMatrix4fv(shadows.modelLocation(),1,GL_FALSE,landmarkModel.data());glBindVertexArray(vao);
+    for(const auto* r:{&curvedBaseRange,&curvedFacadeRange,&curvedBandRange,&porticoMiddleRange,&porticoColumnsRange,&wingPilasterRange,
+                       &upperCurvedWallRange,&upperCorniceRange,&domeDrumRange,&domeRange,&spireRange})if(r->count){
+        glDrawArrays(GL_TRIANGLES,r->first,r->count);shadows.record(r->count);}
+    shadows.countCasters(1);
 }
